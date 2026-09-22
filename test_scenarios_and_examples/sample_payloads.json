@@ -1,0 +1,138 @@
+{
+  "description": "Ready-to-use API payloads for AgroSetu AI (Problem Statement 26033)",
+  "sample_scenarios": {
+    "1_farmer_product_upload": {
+      "endpoint": "/api/products",
+      "method": "POST",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "request_body": {
+        "farmer_id": 1,
+        "crop_name": "Fresh Organic Nashik Tomato (लाल टमाटर)",
+        "category": "Vegetables",
+        "quantity_kg": 1500,
+        "price_per_kg": 38.0,
+        "location": "Nashik",
+        "harvest_date": "2026-09-22",
+        "available_date": "2026-09-24",
+        "quality_grade": "Grade A+ Export Quality",
+        "description": "Firm red tomatoes harvested at dawn, graded for bulk retail and wholesale.",
+        "image_url": "https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=500&auto=format&fit=crop&q=60"
+      },
+      "expected_response": {
+        "message": "Product successfully listed on marketplace",
+        "id": 11
+      }
+    },
+    "2_consumer_bulk_order_with_simulated_payment": {
+      "endpoint": "/api/orders",
+      "method": "POST",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "request_body": {
+        "product_id": 1,
+        "buyer_name": "Priya Kulkarni (Reliance Fresh Pune)",
+        "buyer_phone": "9820011223",
+        "buyer_email": "priya@reliancefresh.in",
+        "delivery_city": "Pune",
+        "delivery_address": "Market Yard Sector 4, Gultekdi",
+        "quantity_kg": 500,
+        "payment_method": "UPI"
+      },
+      "expected_response": {
+        "message": "Order successfully placed and logistics dispatch scheduled!",
+        "order_number": "ORD-2026-XXXXXX",
+        "tracking_number": "SHIP-MAHA-XXXXX",
+        "total_amount": 19000.0
+      }
+    },
+    "3_logistics_new_dispatch_schedule": {
+      "endpoint": "/api/shipments",
+      "method": "POST",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "request_body": {
+        "cargo_description": "500 kg Hybrid Tomatoes (Cold Pack)",
+        "weight_kg": 500.0,
+        "pickup_location": "Farmer Farm, Nashik",
+        "collection_center": "Nashik Agro Hub (Pimpalgaon)",
+        "delivery_location": "Gultekdi Market Yard, Pune",
+        "vehicle_id": 1
+      },
+      "expected_response": {
+        "message": "Shipment successfully scheduled",
+        "tracking_no": "SHIP-MAHA-XXXXX",
+        "transport_cost": 5088.0,
+        "eta": "02:30 PM Today"
+      }
+    },
+    "4_logistics_status_advance": {
+      "endpoint": "/api/shipments/1/status",
+      "method": "PATCH",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "request_body": {
+        "status": "In Transit"
+      },
+      "valid_statuses": [
+        "Scheduled",
+        "Picked Up",
+        "At Collection Center",
+        "In Transit",
+        "Delivered"
+      ]
+    },
+    "5_ai_demand_forecasting_query": {
+      "endpoint": "/api/forecast",
+      "method": "GET",
+      "query_parameters": {
+        "crop": "Tomato",
+        "city": "Pune",
+        "horizon": 7,
+        "season": "Monsoon",
+        "weather": "Moderate Rain",
+        "festival": "Ganesh Chaturthi",
+        "price": 35.0,
+        "base_demand": 1000.0
+      },
+      "expected_result": {
+        "current_demand_kg": 1000.0,
+        "predicted_demand_kg": 1500,
+        "pct_change": 50.0,
+        "confidence_score": 94.2
+      }
+    },
+    "6_ai_route_optimization_5_farmers": {
+      "endpoint": "/api/route/optimize",
+      "method": "POST",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "request_body": {
+        "waypoints": [
+          {"id": "A", "farmer_label": "Farmer A", "farmer_name": "Ramesh Patil", "location_name": "Nashik", "produce": "Tomato & Grapes", "quantity_kg": 850, "lat": 19.9975, "lon": 73.7898},
+          {"id": "B", "farmer_label": "Farmer B", "farmer_name": "Sunita Shinde", "location_name": "Sangamner", "produce": "Green Chillies & Onions", "quantity_kg": 620, "lat": 19.5761, "lon": 74.2070},
+          {"id": "C", "farmer_label": "Farmer C", "farmer_name": "Balasaheb Gadakh", "location_name": "Ahmednagar", "produce": "Pomegranates & Wheat", "quantity_kg": 950, "lat": 19.0948, "lon": 74.7480},
+          {"id": "D", "farmer_label": "Farmer D", "farmer_name": "Vitthalrao Kadam", "location_name": "Pune", "produce": "Capsicum & Leafy Greens", "quantity_kg": 700, "lat": 18.5204, "lon": 73.8567},
+          {"id": "E", "farmer_label": "Farmer E", "farmer_name": "Anand Bhosale", "location_name": "Satara", "produce": "Ginger & Strawberries", "quantity_kg": 500, "lat": 17.6805, "lon": 74.0183}
+        ],
+        "hub": {
+          "name": "Pune Central Agro-Logistics Hub & Market Yard",
+          "lat": 18.4900,
+          "lon": 73.8650
+        }
+      },
+      "expected_savings": {
+        "distance_saved_km": 723.1,
+        "distance_saved_pct": 68.2,
+        "diesel_saved_liters": 92.4,
+        "cost_saved_inr": 12840,
+        "co2_saved_kg": 247.6
+      }
+    }
+  }
+}

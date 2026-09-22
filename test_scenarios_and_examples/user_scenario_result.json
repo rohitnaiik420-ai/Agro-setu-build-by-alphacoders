@@ -1,0 +1,182 @@
+{
+  "scenario_name": "Problem Statement 26033 Canonical Test",
+  "timestamp": "2026-09-22T09:39:50.090920",
+  "modules": {
+    "part_1_marketplace": {
+      "status": "PASS",
+      "product": {
+        "id": 1,
+        "farmer_id": 1,
+        "crop_name": "Organic Hybrid Tomato (लाल टमाटर)",
+        "category": "Vegetables",
+        "quantity_kg": 3500.0,
+        "available_quantity_kg": 3500.0,
+        "price_per_kg": 38.0,
+        "location": "Nashik",
+        "harvest_date": "2026-09-19",
+        "available_date": "2026-09-22",
+        "quality_grade": "Grade A+ Export",
+        "description": "Farm-fresh ripe red tomatoes, firm skin, ideal for bulk retail and puree processing.",
+        "image_url": "https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=500&auto=format&fit=crop&q=60",
+        "created_at": "2026-09-21 05:54:11",
+        "farmer_name": "Ramesh Patil",
+        "fpo_name": "Nashik Sahyadri Farmer Producer Co."
+      },
+      "order": {
+        "id": 1,
+        "order_number": "ORD-2026-001",
+        "product_id": 1,
+        "product_name": "Organic Hybrid Tomato",
+        "farmer_name": "Ramesh Patil",
+        "buyer_name": "Priya Kulkarni (Reliance Fresh Pune)",
+        "buyer_phone": "9820011223",
+        "buyer_email": "priya@reliancefresh.in",
+        "delivery_address": "Market Yard Sector 4, Gultekdi",
+        "delivery_city": "Pune",
+        "quantity_kg": 500.0,
+        "price_per_kg": 38.0,
+        "total_amount": 19000.0,
+        "order_status": "In Transit",
+        "payment_status": "Paid",
+        "payment_method": "UPI",
+        "transaction_id": "UPI-HDFC-998811",
+        "created_at": "2026-09-21 05:54:11"
+      }
+    },
+    "part_2_logistics": {
+      "status": "PASS",
+      "shipment": {
+        "id": 1,
+        "tracking_no": "SHIP-MAHA-101",
+        "order_id": 1,
+        "cargo_description": "Organic Hybrid Tomatoes (Bulk Crates)",
+        "weight_kg": 500.0,
+        "pickup_location": "Farmer Farm, Nashik",
+        "collection_center": "Nashik Collection Center (Pimpalgaon)",
+        "delivery_location": "Gultekdi Market Yard, Pune Buyer",
+        "vehicle_id": 2,
+        "vehicle_no": "MH-12-PQ-8901",
+        "driver_name": "Santosh Shinde",
+        "driver_phone": "9890123987",
+        "status": "In Transit",
+        "distance_km": 212.0,
+        "estimated_hours": 4.8,
+        "transport_cost": 3922.0,
+        "eta_timestamp": "01:24 PM Today",
+        "created_at": "2026-09-21 05:54:11"
+      }
+    },
+    "part_3_forecasting": {
+      "status": "PASS",
+      "current_demand_kg": 1000.0,
+      "predicted_demand_kg": 1500,
+      "pct_change": 50.0,
+      "advisory": {
+        "hindi": "पिछले डेटा एवं Ganesh Chaturthi के प्रभाव से Pune में Tomato की मांग में +50.0% वृद्धि का अनुमान है। किसानों/FPO को सलाह दी जाती है कि वे कटाई को आगामी 3-5 दिनों में संरेखित करें ताकि उच्चतम थोक भाव (Mandi Rate) प्राप्त हो सके।",
+        "english": "Based on historical sales, upcoming Ganesh Chaturthi, and Monsoon conditions in Pune, Tomato demand is projected to reach ~1,500 kg (+50.0%). Recommended action for Farmers/FPOs: schedule grading & cold-chain dispatch for maximum price realization.",
+        "recommended_dispatch_window": "22 Sep - 26 Sep",
+        "recommended_target_price_per_kg": 40.2
+      }
+    },
+    "part_4_routing": {
+      "status": "PASS",
+      "summary": {
+        "num_farmers": 5,
+        "total_cargo_weight_kg": 3620.0,
+        "unoptimized_distance_km": 1288.9,
+        "optimized_distance_km": 565.8,
+        "distance_saved_km": 723.1,
+        "distance_saved_pct": 56.1,
+        "unoptimized_fuel_liters": 171.9,
+        "optimized_fuel_liters": 87.0,
+        "fuel_saved_liters": 84.9,
+        "unoptimized_cost_inr": 20245.0,
+        "optimized_cost_inr": 10722.0,
+        "cost_saved_inr": 9523.0,
+        "cost_saved_pct": 47.0,
+        "co2_saved_kg": 227.5,
+        "estimated_total_hours": 14.6
+      },
+      "stops": [
+        {
+          "step": 1,
+          "farmer_label": "Farmer A",
+          "farmer_name": "Ramesh Patil",
+          "location_name": "Nashik",
+          "produce": "Tomato & Grapes",
+          "pickup_kg": 850,
+          "cumulative_cargo_kg": 850.0,
+          "leg_km": 0.0,
+          "cumulative_km": 0.0,
+          "lat": 19.9975,
+          "lon": 73.7898
+        },
+        {
+          "step": 2,
+          "farmer_label": "Farmer B",
+          "farmer_name": "Sunita Shinde",
+          "location_name": "Sangamner",
+          "produce": "Green Chillies & Onions",
+          "pickup_kg": 620,
+          "cumulative_cargo_kg": 1470.0,
+          "leg_km": 82.0,
+          "cumulative_km": 82.0,
+          "lat": 19.5761,
+          "lon": 74.207
+        },
+        {
+          "step": 3,
+          "farmer_label": "Farmer C",
+          "farmer_name": "Balasaheb Gadakh",
+          "location_name": "Ahmednagar",
+          "produce": "Pomegranates & Wheat",
+          "pickup_kg": 950,
+          "cumulative_cargo_kg": 2420.0,
+          "leg_km": 99.9,
+          "cumulative_km": 181.9,
+          "lat": 19.0948,
+          "lon": 74.748
+        },
+        {
+          "step": 4,
+          "farmer_label": "Farmer D",
+          "farmer_name": "Vitthalrao Kadam",
+          "location_name": "Pune",
+          "produce": "Capsicum & Leafy Greens",
+          "pickup_kg": 700,
+          "cumulative_cargo_kg": 3120.0,
+          "leg_km": 145.3,
+          "cumulative_km": 327.2,
+          "lat": 18.5204,
+          "lon": 73.8567
+        },
+        {
+          "step": 5,
+          "farmer_label": "Farmer E",
+          "farmer_name": "Anand Bhosale",
+          "location_name": "Satara",
+          "produce": "Ginger & Strawberries",
+          "pickup_kg": 500,
+          "cumulative_cargo_kg": 3620.0,
+          "leg_km": 121.5,
+          "cumulative_km": 448.7,
+          "lat": 17.6805,
+          "lon": 74.0183
+        },
+        {
+          "step": 6,
+          "farmer_label": "Central Hub",
+          "farmer_name": "Consolidated Distribution Center",
+          "location_name": "Pune Central Agro-Logistics Hub & Market Yard",
+          "produce": "Aggregated All Produces",
+          "pickup_kg": 0,
+          "cumulative_cargo_kg": 3620.0,
+          "leg_km": 117.1,
+          "cumulative_km": 565.8,
+          "lat": 18.49,
+          "lon": 73.865
+        }
+      ]
+    }
+  }
+}
