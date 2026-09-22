@@ -47,6 +47,15 @@ def startup_event():
 
 # ==================== PYDANTIC SCHEMAS ====================
 
+class FarmerCreateSchema(BaseModel):
+    name: str
+    fpo_name: Optional[str] = "Independent Farm Producer"
+    phone: str
+    city: str
+    state: str = "Maharashtra"
+    address: Optional[str] = ""
+    rating: Optional[float] = 4.8
+
 class ProductCreateSchema(BaseModel):
     farmer_id: Optional[int] = 1
     crop_name: str
@@ -192,6 +201,28 @@ def list_farmers():
     rows = conn.cursor().execute("SELECT * FROM farmers ORDER BY id ASC").fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+@app.post("/api/farmers", status_code=status.HTTP_201_CREATED)
+def register_farmer(farmer: FarmerCreateSchema):
+    """Allows ANY farmer from ANY village, district, or state in India to register."""
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute("""
+    INSERT INTO farmers (name, fpo_name, phone, city, state, address, rating)
+    VALUES (?, ?, ?, ?, ?, ?, ?);
+    """, (
+        farmer.name,
+        farmer.fpo_name or "Independent Farmer",
+        farmer.phone,
+        farmer.city,
+        farmer.state or "India",
+        farmer.address or "",
+        farmer.rating or 4.8
+    ))
+    conn.commit()
+    new_id = c.lastrowid
+    conn.close()
+    return {"message": "Farmer registered successfully!", "id": new_id, "name": farmer.name}
 
 @app.get("/api/orders")
 def list_orders():
@@ -429,6 +460,73 @@ def run_route_optimization(payload: Optional[RouteOptimizeRequest] = None):
     hub = payload.hub if payload and payload.hub else None
     result = solve_route_optimization(waypoints=waypoints, hub=hub)
     return result
+
+@app.get("/api/network-info")
+def get_network_info():
+    """Returns the local IP address for smartphone/tablet access on Wi-Fi."""
+    import socket
+    local_ip = "127.0.0.1"
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.settimeout(0.4)
+        s.connect(('8.8.8.8', 80))
+        local_ip = s.getsockname()[0]
+        s.close()
+    except Exception:
+        try:
+            local_ip = socket.gethostbyname(socket.gethostname())
+        except Exception:
+            pass
+    return {
+        "local_ip": local_ip,
+        "port": 8000,
+        "local_url": "http://127.0.0.1:8000",
+        "mobile_url": f"http://{local_ip}:8000"
+    }
+
+@app.get("/api/corridors")
+def get_regional_corridors():
+    """Returns regional pre-configured corridors across India."""
+    from route_optimizer import (
+        CORRIDOR_MAHARASHTRA, CORRIDOR_NORTH_INDIA, CORRIDOR_CENTRAL_INDIA,
+        CORRIDOR_GUJARAT, CORRIDOR_SOUTH_INDIA, REGIONAL_HUBS, CITY_COORDINATES
+    )
+    return {
+        "corridors": {
+            "maharashtra": {
+                "name": "Maharashtra Western Corridor (Nashik - Sangamner - Ahmednagar - Pune - Satara)",
+                "region": "Western India",
+                "waypoints": CORRIDOR_MAHARASHTRA,
+                "hub": REGIONAL_HUBS["Maharashtra"]
+            },
+            "north_india": {
+                "name": "North India Granary Corridor (Amritsar - Jalandhar - Ludhiana - Karnal -> Delhi)",
+                "region": "North India",
+                "waypoints": CORRIDOR_NORTH_INDIA,
+                "hub": REGIONAL_HUBS["North India"]
+            },
+            "central_india": {
+                "name": "Central India Malwa Corridor (Ujjain - Indore - Dewas - Sehore -> Bhopal)",
+                "region": "Central India",
+                "waypoints": CORRIDOR_CENTRAL_INDIA,
+                "hub": REGIONAL_HUBS["Central India"]
+            },
+            "gujarat": {
+                "name": "Gujarat Agro Belt (Surat - Bharuch - Anand - Vadodara -> Ahmedabad)",
+                "region": "Gujarat",
+                "waypoints": CORRIDOR_GUJARAT,
+                "hub": REGIONAL_HUBS["Gujarat"]
+            },
+            "south_india": {
+                "name": "South India Spice & Fruit Corridor (Guntur - Kurnool - Anantapur -> Bengaluru)",
+                "region": "South India",
+                "waypoints": CORRIDOR_SOUTH_INDIA,
+                "hub": REGIONAL_HUBS["South India"]
+            }
+        },
+        "regional_hubs": REGIONAL_HUBS,
+        "known_cities": list(CITY_COORDINATES.keys())
+    }
 
 # ----- 5. DATABASE RESET & SEED DATA HELPER -----
 

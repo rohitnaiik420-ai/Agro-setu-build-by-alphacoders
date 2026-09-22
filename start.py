@@ -21,14 +21,29 @@ if str(BACKEND_DIR) not in sys.path:
 from database import init_db, DB_PATH
 from seed_data import seed_all
 
+def get_local_ip() -> str:
+    """Returns the local network IPv4 address of this machine for mobile device access."""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.settimeout(0.5)
+        s.connect(('8.8.8.8', 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        try:
+            return socket.gethostbyname(socket.gethostname())
+        except Exception:
+            return "127.0.0.1"
+
 def is_port_in_use(port: int) -> bool:
     """Checks if a local TCP port is already open."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.settimeout(0.5)
+        s.settimeout(0.4)
         return s.connect_ex(('127.0.0.1', port)) == 0
 
 def check_existing_agrosetu_server(port: int) -> bool:
-    """Checks if the existing process on the port is ACTUALLY AgroSetu (PS 26033)."""
+    """Checks if the process on this port is ACTUALLY our AgroSetu platform."""
     import urllib.request
     try:
         url = f"http://127.0.0.1:{port}/api/health"
@@ -43,83 +58,89 @@ def check_existing_agrosetu_server(port: int) -> bool:
 
 def find_best_port() -> int:
     """
-    Finds the best port for AgroSetu:
-    1. If an existing AgroSetu instance is already running on any port, return that port.
-    2. Otherwise, check 8000. If 8000 is free, return 8000.
-    3. If 8000 is taken by another application (like AutoDataScientist), return first free port (8005, 8080, 8001...).
+    Finds the cleanest available port for AgroSetu:
+    1. If AgroSetu is already running, return that port immediately.
+    2. Otherwise, check 8000, 8005, 8080, 8001.
     """
     candidate_ports = [8000, 8005, 8080, 8001, 8002]
     
-    # First, check if AgroSetu is ALREADY running on any of these ports
+    # Check if AgroSetu is ALREADY alive
     for p in candidate_ports:
         if is_port_in_use(p) and check_existing_agrosetu_server(p):
             return p
 
-    # If not already running, pick the first completely free port
+    # Pick first free port
     for p in candidate_ports:
         if not is_port_in_use(p):
             return p
 
-    return 8005
+    return 8000
 
 def launch_browser(url: str):
-    time.sleep(1.8)
-    print(f"\n[+] Opening web browser at: {url} ...")
+    time.sleep(1.5)
+    print(f"\n[+] Opening browser automatically: {url}")
     webbrowser.open(url)
 
 def main():
-    print("=" * 75)
-    print("      AGROSETU AI - AGRO-LOGISTICS & MARKETPLACE SYSTEM")
-    print("             Problem Statement 26033 | Rohit Naik")
-    print("=" * 75)
+    print("=" * 80)
+    print("      AGROSETU AI - AGRO-LOGISTICS AND MARKETPLACE SYSTEM")
+    print("               Problem Statement 26033 | Rohit Naik")
+    print("              (Universal Platform for ALL Farmers in India)")
+    print("=" * 80)
 
     # 1. Database Initialization
     try:
         if not DB_PATH.exists() or DB_PATH.stat().st_size == 0:
-            print("[*] Initializing permanent SQLite database & demo data...")
+            print("[*] Initializing permanent SQLite database & nationwide seed data...")
             seed_all()
         else:
-            print(f"[OK] Database Connected: {DB_PATH.name} ({round(DB_PATH.stat().st_size/1024, 1)} KB)")
+            print(f"[OK] Permanent Database Connected: {DB_PATH.name} ({round(DB_PATH.stat().st_size/1024, 1)} KB)")
     except Exception as e:
         print(f"[!] Warning during DB check: {e}")
 
-    # 2. Find Best Port without collisions
+    # 2. Identify Host & Port
+    local_ip = get_local_ip()
     target_port = find_best_port()
-    dashboard_url = f"http://127.0.0.1:{target_port}"
+    local_url = f"http://127.0.0.1:{target_port}"
+    mobile_url = f"http://{local_ip}:{target_port}"
 
-    # If AgroSetu is already running on this port, simply open browser!
+    # If AgroSetu is ALREADY running on this port, simply open the browser and exit cleanly!
     if is_port_in_use(target_port) and check_existing_agrosetu_server(target_port):
-        print(f"\n[OK] AgroSetu server is ALREADY active and healthy on {dashboard_url}!")
+        print(f"\n[OK] AgroSetu platform is ALREADY active and healthy!")
+        print(f"  * Local PC URL  : {local_url}")
+        print(f"  * Mobile Phone  : {mobile_url} (Any phone on your Wi-Fi)")
         print(f"[+] Opening browser now...")
-        webbrowser.open(dashboard_url)
-        print("\n" + "=" * 75)
-        print(f"  DASHBOARD URL: {dashboard_url}")
-        print(f"  Interactive Swagger Docs: {dashboard_url}/docs")
-        print("  (Server is active in the background. Enjoy your dashboard!)")
-        print("=" * 75)
-        input("\nPress Enter to exit this launcher window...")
+        webbrowser.open(local_url)
+        print("\n" + "=" * 80)
+        print(f"  DASHBOARD IS READY!")
+        print(f"  PC Browser    : {local_url}")
+        print(f"  Mobile Device : {mobile_url}")
+        print("  (Server is already active. Enjoy using your dashboard!)")
+        print("=" * 80)
+        time.sleep(2)
         return
 
     print(f"\n[+] Selected Clean Port: {target_port}")
-    print(f"[+] Dashboard URL: {dashboard_url}")
+    print(f"[+] Local PC URL       : {local_url}")
+    print(f"[+] Mobile Device URL  : {mobile_url} (Same Wi-Fi / Hotspot)")
 
     # 3. Schedule Browser Open
-    threading.Thread(target=launch_browser, args=(dashboard_url,), daemon=True).start()
+    threading.Thread(target=launch_browser, args=(local_url,), daemon=True).start()
 
-    # 4. Start Uvicorn Server with Safe Error Handling
+    # 4. Start Uvicorn Server bound to 0.0.0.0 (Accessible to all farmers on local network)
     import uvicorn
-    print(f"[*] Starting FastAPI Server on {dashboard_url} ...")
-    print("[*] Press Ctrl+C anytime to stop the server.\n")
+    print(f"\n[*] Starting Server bound to 0.0.0.0:{target_port} ...")
+    print("[*] Sabhi farmers apne phone se bhi jud sakte hain!")
+    print("[*] Press Ctrl+C in this terminal to stop the server.\n")
 
     try:
-        uvicorn.run("main:app", host="127.0.0.1", port=target_port, reload=False, app_dir=str(BACKEND_DIR))
+        uvicorn.run("main:app", host="0.0.0.0", port=target_port, reload=False, app_dir=str(BACKEND_DIR))
     except OSError as e:
         if "10048" in str(e):
             alt_port = 8005 if target_port != 8005 else 8080
-            print(f"\n[!] Port {target_port} was locked. Retrying on alternate port {alt_port}...")
-            alt_url = f"http://127.0.0.1:{alt_port}"
-            webbrowser.open(alt_url)
-            uvicorn.run("main:app", host="127.0.0.1", port=alt_port, reload=False, app_dir=str(BACKEND_DIR))
+            print(f"\n[!] Port {target_port} was busy. Retrying on port {alt_port}...")
+            webbrowser.open(f"http://127.0.0.1:{alt_port}")
+            uvicorn.run("main:app", host="0.0.0.0", port=alt_port, reload=False, app_dir=str(BACKEND_DIR))
         else:
             raise e
 

@@ -21,8 +21,14 @@ document.addEventListener('DOMContentLoaded', () => {
   if (harvestInput) harvestInput.value = todayStr;
   if (availInput) availInput.value = nextWeekStr;
 
+  // Restore preferred language if saved
+  const savedLang = localStorage.getItem('agrosetu_lang') || 'en';
+  changeLanguage(savedLang);
+
   // Load initial data
   loadStats();
+  loadFarmersDropdown();
+  fetchCorridors();
   loadProducts();
   loadShipments();
   loadVehicles();
@@ -214,11 +220,12 @@ function applyFilters() {
 
 async function handleProductUpload(e) {
   e.preventDefault();
+  const effectiveQty = getEffectiveQuantityKg();
   const payload = {
     farmer_id: parseInt(document.getElementById('prod-farmer-id').value),
     crop_name: document.getElementById('prod-crop-name').value.trim(),
     category: document.getElementById('prod-category').value,
-    quantity_kg: parseFloat(document.getElementById('prod-qty').value),
+    quantity_kg: effectiveQty,
     price_per_kg: parseFloat(document.getElementById('prod-price').value),
     location: document.getElementById('prod-location').value,
     harvest_date: document.getElementById('prod-harvest-date').value,
@@ -675,10 +682,16 @@ async function runRouteOptimization() {
   initOrUpdateMap();
 
   try {
+    const payload = {};
+    if (currentCustomWaypoints && currentCustomWaypoints.length > 0) {
+      payload.waypoints = currentCustomWaypoints;
+      if (currentCustomHub) payload.hub = currentCustomHub;
+    }
+
     const res = await fetch('/api/route/optimize', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({})
+      body: JSON.stringify(payload)
     });
 
     if (!res.ok) return;
@@ -785,6 +798,7 @@ async function resetData() {
     if (res.ok) {
       showToast("Database reset to initial demo state!");
       loadStats();
+      loadFarmersDropdown();
       loadProducts();
       loadShipments();
       loadVehicles();
@@ -795,3 +809,443 @@ async function resetData() {
     showToast("Error resetting data", "error");
   }
 }
+
+// ==================== QUANTITY UNIT CONVERTER & QUICK CROPS ====================
+
+function getEffectiveQuantityKg() {
+  const qtyInput = document.getElementById('prod-qty');
+  const rawQty = parseFloat(qtyInput ? qtyInput.value : 0) || 0;
+  const unitSelect = document.getElementById('prod-unit-select');
+  const unit = unitSelect ? unitSelect.value : 'kg';
+
+  if (unit === 'quintal') return rawQty * 100;
+  if (unit === 'tonne') return rawQty * 1000;
+  if (unit === 'crate') return rawQty * 25;
+  return rawQty;
+}
+
+function convertQtyUnit() {
+  const kg = getEffectiveQuantityKg();
+  const preview = document.getElementById('qty-in-kg-preview');
+  if (preview) {
+    preview.innerText = `Calculated: ${kg.toLocaleString()} kg`;
+  }
+}
+
+function setQuickCrop(name, category) {
+  const cropInput = document.getElementById('prod-crop-name');
+  const catSelect = document.getElementById('prod-category');
+  if (cropInput) cropInput.value = name;
+  if (catSelect) catSelect.value = category;
+
+  const priceInput = document.getElementById('prod-price');
+  if (priceInput) {
+    if (name === 'Tomato') priceInput.value = '38';
+    else if (name === 'Onion') priceInput.value = '28';
+    else if (name === 'Potato') priceInput.value = '24';
+    else if (name === 'Wheat') priceInput.value = '26';
+    else if (name === 'Soybean') priceInput.value = '46';
+    else if (name === 'Cotton') priceInput.value = '68';
+  }
+}
+
+// ==================== MULTI-LANGUAGE TRANSLATIONS (EN, HI, MR, PA) ====================
+
+const TRANSLATIONS = {
+  en: {
+    dashboard_title: "AgroSetu AI • Problem Statement 26033",
+    tagline: "Empowering Every Indian Farmer with Direct Markets & AI Routing",
+    nav_overview: "System Overview",
+    nav_farmer: "Farmer Portal",
+    nav_buyer: "Direct Marketplace",
+    nav_forecast: "AI Demand Forecast",
+    nav_routing: "Route Optimizer",
+    nav_logistics: "Fleet & Tracking",
+    mobile_connect: "Mobile Access",
+    farmer_select_label: "Farmer / FPO Name (किसान / उत्पादक संस्था)",
+    register_farmer_btn: "+ Register New Farmer",
+    crop_name_label: "Crop Name (फसल का नाम)",
+    category_label: "Category (श्रेणी)",
+    quantity_label: "Quantity (मात्रा)",
+    price_label: "Price per kg (कीमत ₹/किग्रा)",
+    location_label: "Location / Mandi (स्थान / मंडी)",
+    quality_label: "Quality Grade (गुणवत्ता)",
+    add_farm_stop_btn: "+ Add My Farm / Pickup Stop",
+    select_corridor_label: "Agricultural Corridor (कृषि कॉरिडोर):",
+    forecast_crop_label: "Crop (फसल)",
+    forecast_city_label: "Location / City (स्थान / मंडी)",
+    forecast_fest_label: "Festival (त्योहार)",
+    forecast_season_label: "Season (मौसम)",
+    farmer_reg_title: "Nationwide Farmer Registration",
+    farmer_reg_sub: "Every Indian farmer / FPO can list produce directly",
+    farmer_name: "Farmer Full Name (किसान का पूरा नाम) *",
+    fpo_name: "FPO / Organization Name (संस्था का नाम)",
+    state: "State (राज्य) *",
+    district_city: "District / City (ज़िला / शहर) *",
+    farmer_phone: "Mobile Number (फ़ोन नंबर) *",
+    farmer_address: "Village / Farm Address (गाँव का पता)",
+    submit_register: "Register Farmer Profile (किसान पंजीकृत करें)",
+    add_stop_title: "Add Farm / Pickup Stop",
+    add_stop_sub: "Include any farm in the AI route optimization",
+    farm_name: "Farmer / Farm Label",
+    city_name: "City / Mandi (शहर)",
+    crop_produce: "Produce / Crop (फसल)",
+    quantity_kg: "Pickup Weight (kg)",
+    add_stop_btn: "Add to AI Optimization Route",
+    mobile_title: "Connect Mobile / Any Device",
+    mobile_sub: "Access AgroSetu live on your phone via local Wi-Fi",
+    mobile_scan: "Scan QR Code on your Mobile Camera",
+    mobile_copy: "Copy Link",
+    mobile_tip: "Ensure your phone is connected to the same Wi-Fi or Mobile Hotspot."
+  },
+  hi: {
+    dashboard_title: "एग्रोसेतु AI • समस्या विवरण 26033",
+    tagline: "हर भारतीय किसान को सीधे बाज़ार और AI रूटिंग से जोड़ना",
+    nav_overview: "सिस्टम सारांश",
+    nav_farmer: "किसान पोर्टल",
+    nav_buyer: "सीधा बाज़ार",
+    nav_forecast: "AI मांग पूर्वानुमान",
+    nav_routing: "रूट ऑप्टिमाइज़र",
+    nav_logistics: "फ्लीट ट्रैकिंग",
+    mobile_connect: "मोबाइल कनेक्ट",
+    farmer_select_label: "किसान / FPO का नाम",
+    register_farmer_btn: "+ नया किसान जोड़ें",
+    crop_name_label: "फसल का नाम",
+    category_label: "श्रेणी",
+    quantity_label: "मात्रा",
+    price_label: "कीमत ₹/किग्रा",
+    location_label: "स्थान / मंडी",
+    quality_label: "गुणवत्ता ग्रेड",
+    add_farm_stop_btn: "+ मेरा खेत / स्टॉप जोड़ें",
+    select_corridor_label: "कृषि कॉरिडोर:",
+    forecast_crop_label: "फसल",
+    forecast_city_label: "स्थान / मंडी",
+    forecast_fest_label: "त्योहार",
+    forecast_season_label: "मौसम",
+    farmer_reg_title: "अखिल भारतीय किसान पंजीकरण",
+    farmer_reg_sub: "भारत का कोई भी किसान या FPO अपनी उपज बेच सकता है",
+    farmer_name: "किसान का पूरा नाम *",
+    fpo_name: "FPO / समूह का नाम",
+    state: "राज्य *",
+    district_city: "ज़िला / शहर *",
+    farmer_phone: "मोबाइल नंबर *",
+    farmer_address: "गाँव / खेत का पता",
+    submit_register: "किसान प्रोफाइल पंजीकृत करें",
+    add_stop_title: "खेत / पिकअप स्टॉप जोड़ें",
+    add_stop_sub: "AI मार्ग योजना में किसी भी खेत को शामिल करें",
+    farm_name: "किसान / खेत का नाम",
+    city_name: "शहर / मंडी",
+    crop_produce: "उपज / फसल",
+    quantity_kg: "वजन (किग्रा)",
+    add_stop_btn: "AI मार्ग में जोड़ें",
+    mobile_title: "मोबाइल / अन्य डिवाइस से कनेक्ट करें",
+    mobile_sub: "अपने फोन पर लोकल वाई-फाई से एग्रोसेतु चलाएं",
+    mobile_scan: "मोबाइल कैमरे से QR कोड स्कैन करें",
+    mobile_copy: "लिंक कॉपी करें",
+    mobile_tip: "सुनिश्चित करें कि फोन उसी वाई-फाई या हॉटस्पॉट से जुड़ा है।"
+  },
+  mr: {
+    dashboard_title: "ऍग्रोसेतू AI • समस्या विवरण 26033",
+    tagline: "प्रत्येक भारतीय शेतकऱ्याला थेट बाजारपेठ आणि AI मार्गाने जोडणे",
+    nav_overview: "प्रणाली माहिती",
+    nav_farmer: "शेतकरी पोर्टल",
+    nav_buyer: "थेट खरेदी-विक्री",
+    nav_forecast: "AI मागणी अंदाज",
+    nav_routing: "मार्ग ऑप्टिमायझर",
+    nav_logistics: "वाहतूक ट्रॅकिंग",
+    mobile_connect: "मोबाईल प्रवेश",
+    farmer_select_label: "शेतकरी / FPO चे नाव",
+    register_farmer_btn: "+ नवीन शेतकरी जोडा",
+    crop_name_label: "पिकाचे नाव",
+    category_label: "प्रवर्ग",
+    quantity_label: "प्रमाण",
+    price_label: "दर ₹/किलो",
+    location_label: "ठिकाण / बाजार समिती",
+    quality_label: "गुणवत्ता श्रेणी",
+    add_farm_stop_btn: "+ माझे शेत / थांबा जोडा",
+    select_corridor_label: "कृषी कॉरिडॉर:",
+    forecast_crop_label: "पीक",
+    forecast_city_label: "स्थान / शहर",
+    forecast_fest_label: "सण-उत्सव",
+    forecast_season_label: "हंगाम",
+    farmer_reg_title: "अखिल भारतीय शेतकरी नोंदणी",
+    farmer_reg_sub: "महाराष्ट्रातील व भारतातील कोणताही शेतकरी थेट माल विकू शकतो",
+    farmer_name: "शेतकऱ्याचे पूर्ण नाव *",
+    fpo_name: "FPO / कंपनीचे नाव",
+    state: "राज्य *",
+    district_city: "जिल्हा / शहर *",
+    farmer_phone: "मोबाईल नंबर *",
+    farmer_address: "गाव / पत्ता",
+    submit_register: "नोंदणी पूर्ण करा",
+    add_stop_title: "शेत / संकलन थांबा जोडा",
+    add_stop_sub: "AI मार्ग नियोजनात नवीन थांबा समाविष्ट करा",
+    farm_name: "शेतकरी नाव",
+    city_name: "शहर / गाव",
+    crop_produce: "पीक",
+    quantity_kg: "वजन (किलो)",
+    add_stop_btn: "AI मार्गात समाविष्ट करा",
+    mobile_title: "मोबाईलवर कनेक्ट करा",
+    mobile_sub: "स्थानिक वाय-फाय द्वारे मोबाईलवर ऍग्रोसेतू वापरा",
+    mobile_scan: "मोबाईल कॅमेऱ्याने QR कोड स्कॅन करा",
+    mobile_copy: "लिंक कॉपी करा",
+    mobile_tip: "आपला मोबाईल एकाच वाय-फाय किंवा हॉटस्पॉटशी जोडलेला असावा."
+  },
+  pa: {
+    dashboard_title: "ਐਗਰੋਸੇਤੂ AI • ਸਮੱਸਿਆ ਬਿਆਨ 26033",
+    tagline: "ਹਰ ਭਾਰਤੀ ਕਿਸਾਨ ਨੂੰ ਸਿੱਧੀਆਂ ਮੰਡੀਆਂ ਅਤੇ AI ਰੂਟਿੰਗ ਨਾਲ ਜੋੜਨਾ",
+    nav_overview: "ਸਿਸਟਮ ਸੰਖੇਪ",
+    nav_farmer: "ਕਿਸਾਨ ਪੋਰਟਲ",
+    nav_buyer: "ਸਿੱਧੀ ਮੰਡੀ",
+    nav_forecast: "AI ਮੰਗ ਪੂਰਵ ਅਨੁਮਾਨ",
+    nav_routing: "ਰੂਟ ਓਪਟੀਮਾਈਜ਼ਰ",
+    nav_logistics: "ਫਲੀਟ ਟਰੈਕਿੰਗ",
+    mobile_connect: "ਮੋਬਾਈਲ ਕਨੈਕਟ",
+    farmer_select_label: "ਕਿਸਾਨ / FPO ਦਾ ਨਾਂ",
+    register_farmer_btn: "+ ਨਵਾਂ ਕਿਸਾਨ ਸ਼ਾਮਲ ਕਰੋ",
+    crop_name_label: "ਫ਼ਸਲ ਦਾ ਨਾਂ",
+    category_label: "ਸ਼੍ਰੇਣੀ",
+    quantity_label: "ਮਾਤਰਾ",
+    price_label: "ਰੇਟ ₹/ਕਿਲੋ",
+    location_label: "ਟਿਕਾਣਾ / ਮੰਡੀ",
+    quality_label: "ਗੁਣਵੱਤਾ ਗ੍ਰੇਡ",
+    add_farm_stop_btn: "+ ਮੇਰਾ ਖੇਤ / ਸਟਾਪ ਸ਼ਾਮਲ ਕਰੋ",
+    select_corridor_label: "ਖੇਤੀਬਾੜੀ ਕੋਰੀਡੋਰ:",
+    forecast_crop_label: "ਫ਼ਸਲ",
+    forecast_city_label: "ਸ਼ਹਿਰ / ਮੰਡੀ",
+    forecast_fest_label: "ਤਿਉਹਾਰ",
+    forecast_season_label: "ਮੌਸਮ / ਸੀਜ਼ਨ",
+    farmer_reg_title: "ਕਿਸਾਨ ਰਜਿਸਟ੍ਰੇਸ਼ਨ",
+    farmer_reg_sub: "ਪੰਜਾਬ ਅਤੇ ਪੂਰੇ ਭਾਰਤ ਦਾ ਕੋਈ ਵੀ ਕਿਸਾਨ ਆਪਣੀ ਫ਼ਸਲ ਵੇਚ ਸਕਦਾ ਹੈ",
+    farmer_name: "ਕਿਸਾਨ ਦਾ ਪੂਰਾ ਨਾਂ *",
+    fpo_name: "FPO / ਸੁਸਾਇਟੀ ਦਾ ਨਾਂ",
+    state: "ਰਾਜ *",
+    district_city: "ਜ਼ਿਲ੍ਹਾ / ਸ਼ਹਿਰ *",
+    farmer_phone: "ਮੋਬਾਈਲ ਨੰਬਰ *",
+    farmer_address: "ਪਿੰਡ ਦਾ ਪਤਾ",
+    submit_register: "ਕਿਸਾਨ ਪ੍ਰੋਫਾਈਲ ਦਰਜ ਕਰੋ",
+    add_stop_title: "ਖੇਤ / ਪਿਕਅੱਪ ਸਟਾਪ ਸ਼ਾਮਲ ਕਰੋ",
+    add_stop_sub: "AI ਰੂਟ ਯੋਜਨਾ ਵਿੱਚ ਕੋਈ ਵੀ ਖੇਤ ਸ਼ਾਮਲ ਕਰੋ",
+    farm_name: "ਕਿਸਾਨ / ਖੇਤ ਦਾ ਨਾਂ",
+    city_name: "ਸ਼ਹਿਰ / ਮੰਡੀ",
+    crop_produce: "ਫ਼ਸਲ",
+    quantity_kg: "ਭਾਰ (ਕਿਲੋ)",
+    add_stop_btn: "AI ਰੂਟ ਵਿੱਚ ਜੋੜੋ",
+    mobile_title: "ਮੋਬਾਈਲ ਨਾਲ ਕਨੈਕਟ ਕਰੋ",
+    mobile_sub: "ਵਾਈ-ਫਾਈ ਰਾਹੀਂ ਆਪਣੇ ਫ਼ੋਨ 'ਤੇ ਐਗਰੋਸੇਤੂ ਚਲਾਓ",
+    mobile_scan: "QR ਕੋਡ ਸਕੈਨ ਕਰੋ",
+    mobile_copy: "ਲਿੰਕ ਕਾਪੀ ਕਰੋ",
+    mobile_tip: "ਯਕੀਨੀ ਬਣਾਓ ਕਿ ਫ਼ੋਨ ਉਸੇ ਵਾਈ-ਫਾਈ ਨਾਲ ਜੁੜਿਆ ਹੈ।"
+  }
+};
+
+function changeLanguage(lang) {
+  const dict = TRANSLATIONS[lang] || TRANSLATIONS.en;
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (dict[key]) {
+      el.innerText = dict[key];
+    }
+  });
+  const langSelect = document.getElementById('lang-select');
+  if (langSelect) langSelect.value = lang;
+  localStorage.setItem('agrosetu_lang', lang);
+}
+
+// ==================== CORRIDOR MANAGEMENT ====================
+
+let currentCorridorKey = 'maharashtra';
+let regionalCorridorsData = null;
+let currentCustomWaypoints = null;
+let currentCustomHub = null;
+
+async function fetchCorridors() {
+  try {
+    const res = await fetch('/api/corridors');
+    if (res.ok) {
+      regionalCorridorsData = await res.json();
+    }
+  } catch (err) {
+    console.error("Error fetching corridors:", err);
+  }
+}
+
+async function changeCorridor(corridorKey) {
+  currentCorridorKey = corridorKey;
+  if (!regionalCorridorsData) {
+    await fetchCorridors();
+  }
+  if (regionalCorridorsData && regionalCorridorsData.corridors && regionalCorridorsData.corridors[corridorKey]) {
+    const c = regionalCorridorsData.corridors[corridorKey];
+    currentCustomWaypoints = JSON.parse(JSON.stringify(c.waypoints));
+    currentCustomHub = JSON.parse(JSON.stringify(c.hub));
+  } else {
+    currentCustomWaypoints = null;
+    currentCustomHub = null;
+  }
+  runRouteOptimization();
+}
+
+function resetCorridorWaypoints() {
+  const select = document.getElementById('route-corridor-select');
+  const val = select ? select.value : 'maharashtra';
+  changeCorridor(val);
+  showToast("Corridor waypoints reset!");
+}
+
+// ==================== FARMER REGISTRATION MODAL ====================
+
+function openFarmerRegisterModal() {
+  const modal = document.getElementById('farmer-register-modal');
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeFarmerRegisterModal() {
+  const modal = document.getElementById('farmer-register-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+async function loadFarmersDropdown() {
+  try {
+    const res = await fetch('/api/farmers');
+    if (!res.ok) return;
+    const farmers = await res.json();
+    const select = document.getElementById('prod-farmer-id');
+    if (!select) return;
+
+    select.innerHTML = farmers.map(f => `
+      <option value="${f.id}">${f.name} (${f.fpo_name || 'Independent'}) - ${f.city}, ${f.state}</option>
+    `).join('');
+  } catch (err) {
+    console.error("Error loading farmers:", err);
+  }
+}
+
+async function handleFarmerRegister(e) {
+  e.preventDefault();
+  const payload = {
+    name: document.getElementById('reg-farmer-name').value.trim(),
+    fpo_name: document.getElementById('reg-farmer-fpo').value.trim() || 'Independent Farmer',
+    state: document.getElementById('reg-farmer-state').value,
+    city: document.getElementById('reg-farmer-city').value.trim(),
+    phone: document.getElementById('reg-farmer-phone').value.trim(),
+    address: document.getElementById('reg-farmer-address').value.trim()
+  };
+
+  try {
+    const res = await fetch('/api/farmers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      showToast(err.detail || "Registration failed", "error");
+      return;
+    }
+
+    const result = await res.json();
+    showToast(`Farmer ${result.name} registered successfully!`, "success");
+    closeFarmerRegisterModal();
+    document.getElementById('farmer-register-form').reset();
+    await loadFarmersDropdown();
+    if (result.id) {
+      document.getElementById('prod-farmer-id').value = result.id;
+    }
+    loadStats();
+  } catch (err) {
+    showToast("Network error registering farmer", "error");
+  }
+}
+
+// ==================== MOBILE CONNECT MODAL ====================
+
+async function openMobileConnectModal() {
+  const modal = document.getElementById('mobile-connect-modal');
+  if (modal) modal.classList.remove('hidden');
+
+  try {
+    const res = await fetch('/api/network-info');
+    if (res.ok) {
+      const info = await res.json();
+      const mobileUrl = info.mobile_url;
+      const input = document.getElementById('mobile-url-input');
+      if (input) input.value = mobileUrl;
+      const qrImg = document.getElementById('mobile-qr-img');
+      if (qrImg) {
+        qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(mobileUrl)}`;
+      }
+    }
+  } catch (err) {
+    console.error("Error loading network info:", err);
+  }
+}
+
+function closeMobileConnectModal() {
+  const modal = document.getElementById('mobile-connect-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function copyMobileUrl() {
+  const input = document.getElementById('mobile-url-input');
+  if (!input) return;
+  input.select();
+  navigator.clipboard.writeText(input.value).then(() => {
+    showToast("Mobile link copied to clipboard!");
+  }).catch(() => {
+    document.execCommand('copy');
+    showToast("Link copied!");
+  });
+}
+
+// ==================== ADD WAYPOINT MODAL (CUSTOM FARM STOP) ====================
+
+function openAddWaypointModal() {
+  const modal = document.getElementById('add-waypoint-modal');
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeAddWaypointModal() {
+  const modal = document.getElementById('add-waypoint-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function handleAddWaypoint(e) {
+  e.preventDefault();
+  const farmerName = document.getElementById('wp-farmer-name').value.trim();
+  const location = document.getElementById('wp-location').value.trim();
+  const state = document.getElementById('wp-state').value.trim();
+  const produce = document.getElementById('wp-produce').value.trim();
+  const qty = parseFloat(document.getElementById('wp-qty').value) || 500;
+
+  if (!currentCustomWaypoints) {
+    if (regionalCorridorsData && regionalCorridorsData.corridors && regionalCorridorsData.corridors[currentCorridorKey]) {
+      currentCustomWaypoints = JSON.parse(JSON.stringify(regionalCorridorsData.corridors[currentCorridorKey].waypoints));
+      currentCustomHub = JSON.parse(JSON.stringify(regionalCorridorsData.corridors[currentCorridorKey].hub));
+    } else {
+      currentCustomWaypoints = [
+        { label: "Farmer A", name: "Ramesh Patil", location: "Nashik", produce: "Pomegranates", pickup_kg: 1200 },
+        { label: "Farmer B", name: "Sunita Shinde", location: "Sangamner", produce: "Tomatoes", pickup_kg: 800 },
+        { label: "Farmer C", name: "Balasaheb Gadakh", location: "Ahmednagar", produce: "Onions", pickup_kg: 1500 },
+        { label: "Farmer D", name: "Vitthalrao Kadam", location: "Pune", produce: "Green Chillies", pickup_kg: 600 },
+        { label: "Farmer E", name: "Anand Bhosale", location: "Satara", produce: "Strawberries", pickup_kg: 500 }
+      ];
+    }
+  }
+
+  const newLabel = `Farmer ${String.fromCharCode(65 + currentCustomWaypoints.length)}`;
+  currentCustomWaypoints.push({
+    label: newLabel,
+    name: farmerName,
+    location: location,
+    state: state,
+    produce: produce,
+    pickup_kg: qty
+  });
+
+  closeAddWaypointModal();
+  document.getElementById('add-waypoint-form').reset();
+  showToast(`Added ${farmerName} (${location}) to AI route!`, "success");
+  runRouteOptimization();
+}
+

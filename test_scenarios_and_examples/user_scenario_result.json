@@ -1,6 +1,6 @@
 {
   "scenario_name": "Problem Statement 26033 Canonical Test",
-  "timestamp": "2026-09-22T09:39:50.090920",
+  "timestamp": "2026-09-22T21:12:56.586756",
   "modules": {
     "part_1_marketplace": {
       "status": "PASS",
@@ -12,15 +12,13 @@
         "quantity_kg": 3500.0,
         "available_quantity_kg": 3500.0,
         "price_per_kg": 38.0,
-        "location": "Nashik",
-        "harvest_date": "2026-09-19",
-        "available_date": "2026-09-22",
+        "location": "Nashik, Maharashtra",
+        "harvest_date": "2026-09-20",
+        "available_date": "2026-09-23",
         "quality_grade": "Grade A+ Export",
         "description": "Farm-fresh ripe red tomatoes, firm skin, ideal for bulk retail and puree processing.",
         "image_url": "https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=500&auto=format&fit=crop&q=60",
-        "created_at": "2026-09-21 05:54:11",
-        "farmer_name": "Ramesh Patil",
-        "fpo_name": "Nashik Sahyadri Farmer Producer Co."
+        "created_at": "2026-09-22 15:42:17"
       },
       "order": {
         "id": 1,
@@ -40,7 +38,7 @@
         "payment_status": "Paid",
         "payment_method": "UPI",
         "transaction_id": "UPI-HDFC-998811",
-        "created_at": "2026-09-21 05:54:11"
+        "created_at": "2026-09-22 15:42:17"
       }
     },
     "part_2_logistics": {
@@ -62,8 +60,8 @@
         "distance_km": 212.0,
         "estimated_hours": 4.8,
         "transport_cost": 3922.0,
-        "eta_timestamp": "01:24 PM Today",
-        "created_at": "2026-09-21 05:54:11"
+        "eta_timestamp": "11:12 PM Today",
+        "created_at": "2026-09-22 15:42:17"
       }
     },
     "part_3_forecasting": {
@@ -72,8 +70,8 @@
       "predicted_demand_kg": 1500,
       "pct_change": 50.0,
       "advisory": {
-        "hindi": "पिछले डेटा एवं Ganesh Chaturthi के प्रभाव से Pune में Tomato की मांग में +50.0% वृद्धि का अनुमान है। किसानों/FPO को सलाह दी जाती है कि वे कटाई को आगामी 3-5 दिनों में संरेखित करें ताकि उच्चतम थोक भाव (Mandi Rate) प्राप्त हो सके।",
-        "english": "Based on historical sales, upcoming Ganesh Chaturthi, and Monsoon conditions in Pune, Tomato demand is projected to reach ~1,500 kg (+50.0%). Recommended action for Farmers/FPOs: schedule grading & cold-chain dispatch for maximum price realization.",
+        "hindi": "ऐतिहासिक डेटा एवं Ganesh Chaturthi के प्रभाव से Pune में Tomato की मांग में +50.0% वृद्धि का अनुमान है। किसानों/FPO को सलाह दी जाती है कि वे फसल कटाई व ढुलाई को आगामी 3-5 दिनों में संरेखित करें ताकि उच्चतम मंडी भाव (Mandi Rate) प्राप्त हो सके।",
+        "english": "Based on historical sales, upcoming Ganesh Chaturthi, and Monsoon conditions in Pune, Tomato demand is projected to reach ~1,500 kg (+50.0%). Recommended action for Farmers/FPOs: schedule grading & logistics dispatch for maximum mandi price realization.",
         "recommended_dispatch_window": "22 Sep - 26 Sep",
         "recommended_target_price_per_kg": 40.2
       }
@@ -83,98 +81,117 @@
       "summary": {
         "num_farmers": 5,
         "total_cargo_weight_kg": 3620.0,
-        "unoptimized_distance_km": 1288.9,
-        "optimized_distance_km": 565.8,
-        "distance_saved_km": 723.1,
+        "unoptimized_distance_km": 1289.0,
+        "optimized_distance_km": 565.7,
+        "distance_saved_km": 723.3,
         "distance_saved_pct": 56.1,
         "unoptimized_fuel_liters": 171.9,
         "optimized_fuel_liters": 87.0,
-        "fuel_saved_liters": 84.9,
-        "unoptimized_cost_inr": 20245.0,
-        "optimized_cost_inr": 10722.0,
-        "cost_saved_inr": 9523.0,
-        "cost_saved_pct": 47.0,
-        "co2_saved_kg": 227.5,
-        "estimated_total_hours": 14.6
+        "fuel_saved_liters": 84.8,
+        "unoptimized_cost_inr": 22041.0,
+        "optimized_cost_inr": 11336.0,
+        "cost_saved_inr": 10705.0,
+        "cost_saved_pct": 48.6,
+        "co2_saved_kg": 227.3,
+        "estimated_total_hours": 15.6,
+        "hub_name": "Pune Central Agro-Logistics Hub & Market Yard (Gultekdi)"
       },
       "stops": [
         {
           "step": 1,
+          "id": "A",
           "farmer_label": "Farmer A",
           "farmer_name": "Ramesh Patil",
           "location_name": "Nashik",
+          "state": "Maharashtra",
           "produce": "Tomato & Grapes",
-          "pickup_kg": 850,
+          "quantity_kg": 850,
           "cumulative_cargo_kg": 850.0,
+          "lat": 19.9975,
+          "lon": 73.7898,
           "leg_km": 0.0,
           "cumulative_km": 0.0,
-          "lat": 19.9975,
-          "lon": 73.7898
+          "action": "Pickup 850 kg Tomato & Grapes"
         },
         {
           "step": 2,
+          "id": "B",
           "farmer_label": "Farmer B",
           "farmer_name": "Sunita Shinde",
           "location_name": "Sangamner",
+          "state": "Maharashtra",
           "produce": "Green Chillies & Onions",
-          "pickup_kg": 620,
+          "quantity_kg": 620,
           "cumulative_cargo_kg": 1470.0,
+          "lat": 19.5761,
+          "lon": 74.207,
           "leg_km": 82.0,
           "cumulative_km": 82.0,
-          "lat": 19.5761,
-          "lon": 74.207
+          "action": "Pickup 620 kg Green Chillies & Onions"
         },
         {
           "step": 3,
+          "id": "C",
           "farmer_label": "Farmer C",
           "farmer_name": "Balasaheb Gadakh",
           "location_name": "Ahmednagar",
+          "state": "Maharashtra",
           "produce": "Pomegranates & Wheat",
-          "pickup_kg": 950,
+          "quantity_kg": 950,
           "cumulative_cargo_kg": 2420.0,
-          "leg_km": 99.9,
-          "cumulative_km": 181.9,
           "lat": 19.0948,
-          "lon": 74.748
+          "lon": 74.748,
+          "leg_km": 99.9,
+          "cumulative_km": 181.8,
+          "action": "Pickup 950 kg Pomegranates & Wheat"
         },
         {
           "step": 4,
+          "id": "D",
           "farmer_label": "Farmer D",
           "farmer_name": "Vitthalrao Kadam",
           "location_name": "Pune",
+          "state": "Maharashtra",
           "produce": "Capsicum & Leafy Greens",
-          "pickup_kg": 700,
+          "quantity_kg": 700,
           "cumulative_cargo_kg": 3120.0,
-          "leg_km": 145.3,
-          "cumulative_km": 327.2,
           "lat": 18.5204,
-          "lon": 73.8567
+          "lon": 73.8567,
+          "leg_km": 145.3,
+          "cumulative_km": 327.1,
+          "action": "Pickup 700 kg Capsicum & Leafy Greens"
         },
         {
           "step": 5,
+          "id": "E",
           "farmer_label": "Farmer E",
           "farmer_name": "Anand Bhosale",
           "location_name": "Satara",
+          "state": "Maharashtra",
           "produce": "Ginger & Strawberries",
-          "pickup_kg": 500,
+          "quantity_kg": 500,
           "cumulative_cargo_kg": 3620.0,
-          "leg_km": 121.5,
-          "cumulative_km": 448.7,
           "lat": 17.6805,
-          "lon": 74.0183
+          "lon": 74.0183,
+          "leg_km": 121.5,
+          "cumulative_km": 448.6,
+          "action": "Pickup 500 kg Ginger & Strawberries"
         },
         {
           "step": 6,
+          "id": "HUB",
           "farmer_label": "Central Hub",
-          "farmer_name": "Consolidated Distribution Center",
-          "location_name": "Pune Central Agro-Logistics Hub & Market Yard",
-          "produce": "Aggregated All Produces",
-          "pickup_kg": 0,
+          "farmer_name": "Agro-Logistics Terminal",
+          "location_name": "Pune Central Agro-Logistics Hub & Market Yard (Gultekdi)",
+          "state": "Destination",
+          "produce": "Consolidated Batch Delivery",
+          "quantity_kg": 0,
           "cumulative_cargo_kg": 3620.0,
-          "leg_km": 117.1,
-          "cumulative_km": 565.8,
           "lat": 18.49,
-          "lon": 73.865
+          "lon": 73.865,
+          "leg_km": 117.1,
+          "cumulative_km": 565.7,
+          "action": "Unload all 3,620 kg at Central Wholesale Hub"
         }
       ]
     }

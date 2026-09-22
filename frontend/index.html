@@ -57,15 +57,28 @@
           </div>
         </div>
 
-        <!-- System Controls & Badges -->
-        <div class="flex items-center space-x-3">
-          <div class="hidden md:flex items-center space-x-2 bg-emerald-950/40 px-3 py-1.5 rounded-lg border border-emerald-700/50 text-xs">
-            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span class="text-emerald-200">SQLite Active: <strong class="text-white">agri_system.db</strong></span>
+        <!-- System Controls, Language Switcher & Mobile Connect -->
+        <div class="flex items-center space-x-2.5">
+          <!-- Multi-Language Selector -->
+          <div class="flex items-center space-x-1.5 bg-emerald-950/60 px-2.5 py-1 rounded-lg border border-emerald-500/40 text-xs">
+            <i class="fa-solid fa-globe text-emerald-300"></i>
+            <select id="lang-switcher" onchange="changeLanguage(this.value)" class="bg-transparent text-white font-medium focus:outline-none cursor-pointer text-xs">
+              <option value="en" class="bg-slate-900 text-white">English</option>
+              <option value="hi" class="bg-slate-900 text-white">हिन्दी (Hindi)</option>
+              <option value="mr" class="bg-slate-900 text-white">मराठी (Marathi)</option>
+              <option value="pa" class="bg-slate-900 text-white">ਪੰਜਾਬੀ (Punjabi)</option>
+            </select>
           </div>
+
+          <!-- Mobile / Phone Access Button -->
+          <button onclick="openMobileConnectModal()" class="text-xs bg-amber-400 hover:bg-amber-500 text-slate-950 font-bold px-3 py-1.5 rounded-lg shadow transition flex items-center space-x-1.5" title="Open on Mobile / Phone">
+            <i class="fa-solid fa-mobile-screen-button text-sm"></i>
+            <span data-i18n="mobile_access">Mobile Access</span>
+          </button>
+
           <button onclick="resetData()" class="text-xs bg-emerald-700/40 hover:bg-emerald-600/60 text-emerald-100 px-3 py-1.5 rounded-lg border border-emerald-500/30 transition flex items-center space-x-1.5" title="Reset sample data">
             <i class="fa-solid fa-rotate-right"></i>
-            <span>Reset Demo Data</span>
+            <span data-i18n="reset_data">Reset Data</span>
           </button>
           <a href="/docs" target="_blank" class="text-xs bg-white/10 hover:bg-white/20 text-white px-2.5 py-1.5 rounded-lg border border-white/20 transition flex items-center space-x-1" title="Interactive API Docs">
             <i class="fa-solid fa-code"></i>
@@ -358,59 +371,114 @@
             
             <!-- Farmer / FPO Selection -->
             <div>
-              <label class="block font-semibold text-slate-700 mb-1">Farmer / FPO Name (किसान / उत्पादक संस्था)</label>
+              <div class="flex items-center justify-between mb-1">
+                <label class="font-semibold text-slate-700" data-i18n="farmer_select_label">Farmer / FPO Name (किसान / उत्पादक संस्था)</label>
+                <button type="button" onclick="openFarmerRegisterModal()" class="text-[11px] bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-semibold px-2 py-0.5 rounded transition flex items-center space-x-1">
+                  <i class="fa-solid fa-user-plus"></i>
+                  <span data-i18n="register_farmer_btn">+ Register New Farmer</span>
+                </button>
+              </div>
               <select id="prod-farmer-id" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-slate-50">
-                <option value="1">Ramesh Patil (Nashik Sahyadri FPO)</option>
-                <option value="2">Sunita Shinde (Sangamner Agro FPO)</option>
-                <option value="3">Balasaheb Gadakh (Ahmednagar Krushi Vikas)</option>
-                <option value="4">Vitthalrao Kadam (Pune Peri-Urban Growers)</option>
-                <option value="5">Anand Bhosale (Satara Hill-Produce Co.)</option>
+                <option value="1">Ramesh Patil (Nashik Sahyadri FPO) - Maharashtra</option>
+                <option value="2">Sunita Shinde (Sangamner Agro FPO) - Maharashtra</option>
+                <option value="3">Balasaheb Gadakh (Ahmednagar Krushi Vikas) - Maharashtra</option>
+                <option value="4">Vitthalrao Kadam (Pune Peri-Urban Growers) - Maharashtra</option>
+                <option value="5">Anand Bhosale (Satara Hill-Produce Co.) - Maharashtra</option>
+                <option value="6">Harbhajan Singh Gill (Punjab Seed Potato Growers) - Punjab</option>
+                <option value="7">Dharmendra Patel (Malwa Onion Farmers Producer) - Madhya Pradesh</option>
+                <option value="8">Mukesh Choudhary (Marwar Organic Farming) - Rajasthan</option>
+                <option value="9">Bhaveshbhai Patel (Gujarat Cotton Growers) - Gujarat</option>
+                <option value="10">K. Venkat Reddy (Deccan Chilli Producers) - Andhra Pradesh</option>
               </select>
             </div>
 
             <!-- Crop Name & Category -->
-            <div class="grid grid-cols-2 gap-2">
-              <div>
-                <label class="block font-semibold text-slate-700 mb-1">Crop Name (फसल का नाम)</label>
-                <input type="text" id="prod-crop-name" required placeholder="e.g. Pune Hybrid Tomato" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+            <div class="space-y-1">
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="block font-semibold text-slate-700 mb-1" data-i18n="crop_name_label">Crop Name (फसल का नाम)</label>
+                  <input type="text" id="prod-crop-name" required placeholder="e.g. Pune Hybrid Tomato" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+                </div>
+                <div>
+                  <label class="block font-semibold text-slate-700 mb-1" data-i18n="category_label">Category (श्रेणी)</label>
+                  <select id="prod-category" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-slate-50">
+                    <option value="Vegetables">Vegetables (सब्जियां)</option>
+                    <option value="Fruits">Fruits (फल)</option>
+                    <option value="Grains">Grains (अनाज)</option>
+                    <option value="Pulses">Pulses (दालें)</option>
+                  </select>
+                </div>
               </div>
-              <div>
-                <label class="block font-semibold text-slate-700 mb-1">Category (श्रेणी)</label>
-                <select id="prod-category" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-slate-50">
-                  <option value="Vegetables">Vegetables (सब्जियां)</option>
-                  <option value="Fruits">Fruits (फल)</option>
-                  <option value="Grains">Grains (अनाज)</option>
-                  <option value="Pulses">Pulses (दालें)</option>
-                </select>
+              <!-- Quick Crop Selection Chips -->
+              <div class="flex flex-wrap gap-1 pt-1 text-[11px]">
+                <span class="cursor-pointer bg-slate-100 hover:bg-emerald-100 text-slate-700 px-1.5 py-0.5 rounded transition" onclick="setQuickCrop('Tomato', 'Vegetables')">🍅 Tomato</span>
+                <span class="cursor-pointer bg-slate-100 hover:bg-emerald-100 text-slate-700 px-1.5 py-0.5 rounded transition" onclick="setQuickCrop('Onion', 'Vegetables')">🧅 Onion</span>
+                <span class="cursor-pointer bg-slate-100 hover:bg-emerald-100 text-slate-700 px-1.5 py-0.5 rounded transition" onclick="setQuickCrop('Potato', 'Vegetables')">🥔 Potato</span>
+                <span class="cursor-pointer bg-slate-100 hover:bg-emerald-100 text-slate-700 px-1.5 py-0.5 rounded transition" onclick="setQuickCrop('Wheat', 'Grains')">🌾 Wheat</span>
+                <span class="cursor-pointer bg-slate-100 hover:bg-emerald-100 text-slate-700 px-1.5 py-0.5 rounded transition" onclick="setQuickCrop('Soybean', 'Pulses')">🌱 Soybean</span>
+                <span class="cursor-pointer bg-slate-100 hover:bg-emerald-100 text-slate-700 px-1.5 py-0.5 rounded transition" onclick="setQuickCrop('Cotton', 'Grains')">☁️ Cotton</span>
               </div>
             </div>
 
-            <!-- Quantity & Price -->
+            <!-- Quantity & Price with Unit Converter -->
             <div class="grid grid-cols-2 gap-2">
               <div>
-                <label class="block font-semibold text-slate-700 mb-1">Quantity in kg (मात्रा)</label>
-                <input type="number" id="prod-qty" required min="10" step="10" placeholder="e.g. 1000" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+                <div class="flex items-center justify-between mb-1">
+                  <label class="font-semibold text-slate-700" data-i18n="quantity_label">Quantity (मात्रा)</label>
+                  <select id="prod-unit-select" onchange="convertQtyUnit()" class="text-[10px] border border-slate-300 rounded px-1 py-0.5 bg-slate-50">
+                    <option value="kg" selected>kg (किग्रा)</option>
+                    <option value="quintal">Quintal (100kg)</option>
+                    <option value="tonne">Tonne (1000kg)</option>
+                    <option value="crate">Crate (25kg)</option>
+                  </select>
+                </div>
+                <input type="number" id="prod-qty" required min="1" step="any" placeholder="e.g. 1000" oninput="convertQtyUnit()" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+                <span id="qty-in-kg-preview" class="text-[10px] text-emerald-700 font-semibold block mt-0.5">Calculated: 1000 kg</span>
               </div>
               <div>
-                <label class="block font-semibold text-slate-700 mb-1">Price per kg (कीमत ₹/किग्रा)</label>
+                <label class="block font-semibold text-slate-700 mb-1" data-i18n="price_label">Price per kg (कीमत ₹/किग्रा)</label>
                 <input type="number" id="prod-price" required min="1" step="0.5" placeholder="e.g. 38" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
               </div>
             </div>
 
-            <!-- Location & Quality Grade -->
+            <!-- Location & Quality Grade with Pan-India Mandi Datalist -->
             <div class="grid grid-cols-2 gap-2">
               <div>
-                <label class="block font-semibold text-slate-700 mb-1">Location (स्थान / ज़िला)</label>
-                <select id="prod-location" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-slate-50">
-                  <option value="Pune">Pune (पुणे)</option>
-                  <option value="Nashik">Nashik (नाशिक)</option>
-                  <option value="Sangamner">Sangamner (संगमनेर)</option>
-                  <option value="Ahmednagar">Ahmednagar (अहमदनगर)</option>
-                  <option value="Satara">Satara (सातारा)</option>
-                </select>
+                <label class="block font-semibold text-slate-700 mb-1" data-i18n="location_label">Location / Mandi (स्थान / मंडी)</label>
+                <input type="text" id="prod-location" list="nationwide-mandis" required placeholder="Select or type any Mandi / City" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-slate-50" value="Pune" />
+                <datalist id="nationwide-mandis">
+                  <option value="Pune (Market Yard, Maharashtra)"></option>
+                  <option value="Nashik (Pimpalgaon APMC, Maharashtra)"></option>
+                  <option value="Sangamner (Agro Hub, Maharashtra)"></option>
+                  <option value="Ahmednagar (Krushi Bazaar, Maharashtra)"></option>
+                  <option value="Satara (Market Yard, Maharashtra)"></option>
+                  <option value="Mumbai (Vashi APMC, Maharashtra)"></option>
+                  <option value="Nagpur (Kalamna Mandi, Maharashtra)"></option>
+                  <option value="Delhi (Azadpur Mandi, Delhi)"></option>
+                  <option value="Ludhiana (Grain Market, Punjab)"></option>
+                  <option value="Amritsar (Bhagtanwala, Punjab)"></option>
+                  <option value="Jalandhar (Maqsudan Mandi, Punjab)"></option>
+                  <option value="Karnal (New Grain Market, Haryana)"></option>
+                  <option value="Ambala (APMC Mandi, Haryana)"></option>
+                  <option value="Jaipur (Muhana Mandi, Rajasthan)"></option>
+                  <option value="Lucknow (Dubagga Mandi, Uttar Pradesh)"></option>
+                  <option value="Varanasi (Pahari Mandi, Uttar Pradesh)"></option>
+                  <option value="Kanpur (Chakeri Mandi, Uttar Pradesh)"></option>
+                  <option value="Indore (Choithram Mandi, Madhya Pradesh)"></option>
+                  <option value="Bhopal (Karond Mandi, Madhya Pradesh)"></option>
+                  <option value="Ujjain (Madhav Nagar Mandi, Madhya Pradesh)"></option>
+                  <option value="Ahmedabad (Jamalpur APMC, Gujarat)"></option>
+                  <option value="Surat (Sardar Market, Gujarat)"></option>
+                  <option value="Vadodara (Khanderao Market, Gujarat)"></option>
+                  <option value="Bengaluru (Yeshwanthpur APMC, Karnataka)"></option>
+                  <option value="Hyderabad (Bowenpally Market, Telangana)"></option>
+                  <option value="Chennai (Koyambedu Wholesale, Tamil Nadu)"></option>
+                  <option value="Kolkata (Posta Bazar, West Bengal)"></option>
+                  <option value="Patna (Bazar Samiti, Bihar)"></option>
+                </datalist>
               </div>
               <div>
-                <label class="block font-semibold text-slate-700 mb-1">Quality Grade (गुणवत्ता)</label>
+                <label class="block font-semibold text-slate-700 mb-1" data-i18n="quality_label">Quality Grade (गुणवत्ता)</label>
                 <select id="prod-grade" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-slate-50">
                   <option value="Grade A+ Export">Grade A+ Export Quality</option>
                   <option value="Grade A Premium">Grade A Premium Mandi</option>
@@ -644,49 +712,85 @@
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-xs">
           <!-- Crop -->
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Crop (फसल)</label>
+            <label class="block font-semibold text-slate-700 mb-1" data-i18n="forecast_crop_label">Crop (फसल)</label>
             <select id="fc-crop" onchange="runForecast()" class="w-full border border-slate-300 rounded-lg p-2 bg-slate-50 focus:ring-2 focus:ring-purple-500 focus:outline-none">
               <option value="Tomato" selected>Tomato (टमाटर)</option>
-              <option value="Onion">Onion (कांदा)</option>
+              <option value="Onion">Onion (कांदा / प्याज)</option>
+              <option value="Potato">Potato (आलू)</option>
+              <option value="Wheat">Wheat (गेहूं)</option>
+              <option value="Soybean">Soybean (सोयाबीन)</option>
+              <option value="Cotton">Cotton (कपास)</option>
               <option value="Pomegranate">Pomegranate (अनार)</option>
               <option value="Chilli">Chilli (हरी मिर्च)</option>
-              <option value="Wheat">Wheat (गेहूं)</option>
+              <option value="Paddy / Rice">Paddy / Rice (धान / चावल)</option>
+              <option value="Mustard">Mustard (सरसों)</option>
             </select>
           </div>
 
           <!-- City -->
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Location / City (स्थान)</label>
+            <label class="block font-semibold text-slate-700 mb-1" data-i18n="forecast_city_label">Location / City (स्थान / मंडी)</label>
             <select id="fc-city" onchange="runForecast()" class="w-full border border-slate-300 rounded-lg p-2 bg-slate-50 focus:ring-2 focus:ring-purple-500 focus:outline-none">
-              <option value="Pune" selected>Pune (पुणे)</option>
-              <option value="Mumbai">Mumbai (मुंबई)</option>
-              <option value="Nashik">Nashik (नाशिक)</option>
-              <option value="Ahmednagar">Ahmednagar (अहमदनगर)</option>
-              <option value="Satara">Satara (सातारा)</option>
+              <optgroup label="Maharashtra Mandis">
+                <option value="Pune" selected>Pune (पुणे - Market Yard)</option>
+                <option value="Mumbai">Mumbai (मुंबई - Vashi APMC)</option>
+                <option value="Nashik">Nashik (नाशिक)</option>
+                <option value="Ahmednagar">Ahmednagar (अहमदनगर)</option>
+                <option value="Satara">Satara (सातारा)</option>
+                <option value="Sangamner">Sangamner (संगमनेर)</option>
+                <option value="Nagpur">Nagpur (नागपुर)</option>
+              </optgroup>
+              <optgroup label="North India Mandis">
+                <option value="Delhi (Azadpur Mandi)">Delhi (दिल्ली - आजादपुर मंडी)</option>
+                <option value="Lucknow">Lucknow (लखनऊ)</option>
+                <option value="Jaipur">Jaipur (जयपुर - मुहाना मंडी)</option>
+                <option value="Ludhiana">Ludhiana (लुधियाना)</option>
+                <option value="Chandigarh">Chandigarh (चंडीगढ़)</option>
+                <option value="Varanasi">Varanasi (वाराणसी)</option>
+              </optgroup>
+              <optgroup label="Central & Gujarat Mandis">
+                <option value="Indore">Indore (इंदौर - चोइथराम मंडी)</option>
+                <option value="Bhopal">Bhopal (भोपाल)</option>
+                <option value="Ahmedabad">Ahmedabad (अहमदाबाद - जमालपुर)</option>
+                <option value="Surat">Surat (सूरत)</option>
+              </optgroup>
+              <optgroup label="South & East Mandis">
+                <option value="Bengaluru">Bengaluru (बेंगलुरु - यशवंतपुर)</option>
+                <option value="Hyderabad">Hyderabad (हैदराबाद)</option>
+                <option value="Chennai">Chennai (चेन्नई - कोयम्बेडु)</option>
+                <option value="Kolkata">Kolkata (कोलकाता - पोस्ता बाजार)</option>
+                <option value="Patna">Patna (पटना)</option>
+              </optgroup>
             </select>
           </div>
 
           <!-- Festival -->
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Festival (त्योहार)</label>
+            <label class="block font-semibold text-slate-700 mb-1" data-i18n="forecast_fest_label">Festival (त्योहार)</label>
             <select id="fc-festival" onchange="runForecast()" class="w-full border border-slate-300 rounded-lg p-2 bg-slate-50 focus:ring-2 focus:ring-purple-500 focus:outline-none">
               <option value="Ganesh Chaturthi" selected>Ganesh Chaturthi (गणेशोत्सव)</option>
               <option value="Diwali">Diwali (दिवाली)</option>
-              <option value="Navratri / Dussehra">Navratri (नवरात्रि)</option>
-              <option value="Wedding Season">Wedding Season (लगन)</option>
-              <option value="None / Regular Week">None / Regular Week</option>
+              <option value="Navratri / Dussehra">Navratri / Dussehra (नवरात्रि)</option>
+              <option value="Chhath Puja">Chhath Puja (छठ पूजा)</option>
+              <option value="Makar Sankranti / Pongal">Makar Sankranti / Pongal (खिचड़ी / पोंगल)</option>
+              <option value="Baisakhi">Baisakhi (बैसाखी)</option>
+              <option value="Holi">Holi (होली)</option>
+              <option value="Eid-ul-Fitr / Eid">Eid-ul-Fitr (ईद)</option>
+              <option value="Wedding Season">Wedding Season (लगन / शादी का सीजन)</option>
+              <option value="None / Regular Week">None / Regular Week (सामान्य दिन)</option>
             </select>
           </div>
 
           <!-- Season -->
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Season (मौसम)</label>
+            <label class="block font-semibold text-slate-700 mb-1" data-i18n="forecast_season_label">Season (मौसम)</label>
             <select id="fc-season" onchange="runForecast()" class="w-full border border-slate-300 rounded-lg p-2 bg-slate-50 focus:ring-2 focus:ring-purple-500 focus:outline-none">
               <option value="Monsoon" selected>Monsoon (मानसून)</option>
               <option value="Winter">Winter (सर्दियां)</option>
               <option value="Summer">Summer (गर्मियां)</option>
-              <option value="Kharif Harvest">Kharif Harvest</option>
-              <option value="Rabi Harvest">Rabi Harvest</option>
+              <option value="Kharif Harvest (खरीफ)">Kharif Harvest (खरीफ कटाई)</option>
+              <option value="Rabi Harvest (रबी)">Rabi Harvest (रबी कटाई)</option>
+              <option value="Zaid / Summer Crop (जायद)">Zaid (जायद की फसल)</option>
             </select>
           </div>
 
@@ -813,6 +917,33 @@
           <div class="text-xs uppercase font-semibold text-teal-700 mb-1">कार्बन बचत (CO2 Reduction)</div>
           <div class="text-3xl font-extrabold text-teal-800" id="route-co2-saved">247 kg</div>
           <div class="text-xs text-teal-600 font-semibold mt-1">Green Agriculture Logistics</div>
+        </div>
+      </div>
+
+      <!-- Corridor Selection & Custom Farm Stop Control Bar -->
+      <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm mb-6">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div class="flex items-center space-x-2 flex-1">
+            <label class="font-bold text-slate-700 text-xs whitespace-nowrap" data-i18n="select_corridor_label">
+              <i class="fa-solid fa-road text-teal-600 mr-1"></i>Agricultural Corridor (कृषि कॉरिडोर):
+            </label>
+            <select id="route-corridor-select" onchange="changeCorridor(this.value)" class="w-full max-w-xl border border-slate-300 rounded-lg p-2 text-xs bg-slate-50 font-semibold text-slate-800 focus:ring-2 focus:ring-teal-500 focus:outline-none">
+              <option value="maharashtra" selected>Maharashtra Western Corridor (Nashik - Sangamner - Ahmednagar - Pune - Satara)</option>
+              <option value="north_india">North India Granary Corridor (Amritsar - Jalandhar - Ludhiana - Karnal -> Delhi)</option>
+              <option value="central_india">Central India Malwa Corridor (Ujjain - Indore - Dewas - Sehore -> Bhopal)</option>
+              <option value="gujarat">Gujarat Agro Belt (Surat - Bharuch - Anand - Vadodara -> Ahmedabad)</option>
+              <option value="south_india">South India Spice & Fruit Corridor (Guntur - Kurnool - Anantapur -> Bengaluru)</option>
+            </select>
+          </div>
+          <div class="flex items-center space-x-2">
+            <button type="button" onclick="openAddWaypointModal()" class="bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-300 font-bold text-xs px-3.5 py-2 rounded-lg transition flex items-center space-x-1.5 shadow-sm">
+              <i class="fa-solid fa-location-dot text-teal-600"></i>
+              <span data-i18n="add_farm_stop_btn">+ Add My Farm / Pickup Stop</span>
+            </button>
+            <button type="button" onclick="resetCorridorWaypoints()" class="text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-xs px-2.5 py-2 rounded-lg transition" title="Reset corridor to default waypoints">
+              <i class="fa-solid fa-rotate-left mr-1"></i>Reset
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1092,6 +1223,166 @@
 
         <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-4 rounded-xl shadow transition mt-2">
           Dispatch & Generate Tracking Number
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Mobile / Phone Access Modal -->
+  <div id="mobile-connect-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 relative text-center">
+      <button onclick="closeMobileConnectModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-lg">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <div class="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center text-2xl mx-auto mb-3 shadow-inner">
+        📱
+      </div>
+      <h3 class="font-black text-slate-800 text-base" data-i18n="mobile_modal_title">Open on Mobile / Phone</h3>
+      <p class="text-xs text-slate-500 mb-4" data-i18n="mobile_modal_sub">Use AgroSetu AI directly from your farm field on any smartphone</p>
+
+      <!-- QR Code Image -->
+      <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 inline-block mb-3 shadow-sm">
+        <img id="mobile-qr-img" src="" alt="Mobile Access QR Code" class="w-40 h-40 mx-auto rounded-lg shadow-sm" />
+      </div>
+
+      <!-- Mobile URL -->
+      <div class="bg-emerald-50 p-3 rounded-xl border border-emerald-200 text-xs mb-4">
+        <div class="text-[11px] text-emerald-800 font-semibold mb-1" data-i18n="mobile_wifi_url">Local Wi-Fi / Hotspot URL:</div>
+        <div class="font-mono font-bold text-emerald-900 text-sm select-all break-all" id="mobile-url-display">http://127.0.0.1:8000</div>
+      </div>
+
+      <div class="flex space-x-2">
+        <button onclick="copyMobileUrl()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-3 rounded-xl shadow transition text-xs flex items-center justify-center space-x-1">
+          <i class="fa-solid fa-copy"></i>
+          <span data-i18n="copy_url">Copy URL</span>
+        </button>
+        <button onclick="closeMobileConnectModal()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 px-4 rounded-xl text-xs transition">
+          <span data-i18n="close">Close</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Register New Farmer Modal (Nationwide) -->
+  <div id="farmer-register-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 relative max-h-[90vh] overflow-y-auto">
+      <button onclick="closeFarmerRegistrationModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-lg">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <div class="flex items-center space-x-3 border-b border-slate-100 pb-3 mb-4">
+        <div class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-xl">
+          🧑‍🌾
+        </div>
+        <div>
+          <h3 class="font-bold text-slate-800 text-base" data-i18n="register_farmer_title">Register New Farmer / FPO</h3>
+          <p class="text-xs text-slate-500" data-i18n="register_farmer_sub">Any farmer from any state or district in India can register</p>
+        </div>
+      </div>
+
+      <form id="farmer-register-form" onsubmit="handleFarmerRegister(event)" class="space-y-3.5 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1" data-i18n="farmer_full_name">Farmer Full Name (किसान का पूरा नाम) *</label>
+          <input type="text" id="reg-farmer-name" required placeholder="e.g. Gurpreet Singh / Ramesh Patil" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1" data-i18n="farmer_fpo">FPO / Cooperative / Village Group (संस्था / समूह)</label>
+          <input type="text" id="reg-farmer-fpo" placeholder="e.g. Sahyadri FPO / Malwa Agro Cooperative" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1" data-i18n="farmer_state">State (राज्य) *</label>
+            <select id="reg-farmer-state" required class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-slate-50">
+              <option value="Maharashtra">Maharashtra (महाराष्ट्र)</option>
+              <option value="Punjab">Punjab (ਪੰਜਾਬ / पंजाब)</option>
+              <option value="Uttar Pradesh">Uttar Pradesh (उत्तर प्रदेश)</option>
+              <option value="Madhya Pradesh">Madhya Pradesh (मध्य प्रदेश)</option>
+              <option value="Gujarat">Gujarat (ગુજરાત / गुजरात)</option>
+              <option value="Rajasthan">Rajasthan (राजस्थान)</option>
+              <option value="Haryana">Haryana (हरियाणा)</option>
+              <option value="Karnataka">Karnataka (ಕರ್ನಾಟಕ / कर्नाटक)</option>
+              <option value="Tamil Nadu">Tamil Nadu (தமிழ்நாடு)</option>
+              <option value="Andhra Pradesh">Andhra Pradesh (ఆంధ్రప్రదేశ్)</option>
+              <option value="Telangana">Telangana (తెలంగాణ)</option>
+              <option value="Bihar">Bihar (बिहार)</option>
+              <option value="West Bengal">West Bengal (পশ্চিমবঙ্গ)</option>
+              <option value="Other State">Other State (अन्य राज्य)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1" data-i18n="farmer_district">District / Mandi (ज़िला / मंडी) *</label>
+            <input type="text" id="reg-farmer-city" required placeholder="e.g. Ludhiana / Nashik / Indore" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1" data-i18n="farmer_phone">Mobile Number (फ़ोन नंबर) *</label>
+            <input type="tel" id="reg-farmer-phone" required placeholder="e.g. 9814012345" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1" data-i18n="farmer_address">Village / Farm Address (गाँव का पता)</label>
+            <input type="text" id="reg-farmer-address" placeholder="e.g. Village Samrala, GT Road" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+          </div>
+        </div>
+
+        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl shadow transition mt-2 flex items-center justify-center space-x-2">
+          <i class="fa-solid fa-circle-check"></i>
+          <span data-i18n="submit_register">Register Farmer Profile (किसान पंजीकृत करें)</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Waypoint Modal (Add Any Farm Stop) -->
+  <div id="add-waypoint-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 relative">
+      <button onclick="closeAddWaypointModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-lg">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <div class="flex items-center space-x-3 border-b border-slate-100 pb-3 mb-4">
+        <div class="w-10 h-10 rounded-xl bg-teal-100 text-teal-600 flex items-center justify-center text-xl">
+          📍
+        </div>
+        <div>
+          <h3 class="font-bold text-slate-800 text-base" data-i18n="add_stop_title">Add Farm / Pickup Stop</h3>
+          <p class="text-xs text-slate-500" data-i18n="add_stop_sub">Include any farm in the AI route optimization</p>
+        </div>
+      </div>
+
+      <form id="add-waypoint-form" onsubmit="handleAddWaypoint(event)" class="space-y-3 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1" data-i18n="farm_name">Farmer / Farm Label</label>
+          <input type="text" id="wp-farmer-name" required placeholder="e.g. Farmer X (Harbhajan Gill)" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-teal-500 focus:outline-none" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1" data-i18n="city_name">City / Mandi (शहर)</label>
+            <input type="text" id="wp-location" required placeholder="e.g. Jalandhar / Surat" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-teal-500 focus:outline-none" />
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1" data-i18n="state">State (राज्य)</label>
+            <input type="text" id="wp-state" placeholder="e.g. Punjab / Gujarat" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-teal-500 focus:outline-none" />
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1" data-i18n="crop_produce">Produce / Crop (फसल)</label>
+            <input type="text" id="wp-produce" required placeholder="e.g. Seed Potatoes / Cotton" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-teal-500 focus:outline-none" />
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1" data-i18n="quantity_kg">Pickup Weight (kg)</label>
+            <input type="number" id="wp-qty" required min="50" step="50" placeholder="e.g. 1200" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-teal-500 focus:outline-none" />
+          </div>
+        </div>
+
+        <button type="submit" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 px-4 rounded-xl shadow transition mt-2 flex items-center justify-center space-x-1.5">
+          <i class="fa-solid fa-plus"></i>
+          <span data-i18n="add_stop_btn">Add to AI Optimization Route</span>
         </button>
       </form>
     </div>
