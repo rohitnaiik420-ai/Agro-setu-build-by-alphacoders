@@ -437,5 +437,13 @@ def reset_database_data():
     seed_all()
     return {"message": "Database reset to initial sample state successfully!"}
 
+# Explicit root handler ensuring index.html is always returned without static mount ambiguity
+@app.get("/", include_in_schema=False)
+def get_dashboard_root():
+    index_file = FRONTEND_DIR / "index.html"
+    if index_file.exists():
+        return FileResponse(str(index_file))
+    return {"message": "Frontend index.html not found"}
+
 # Serve frontend static files
 app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
