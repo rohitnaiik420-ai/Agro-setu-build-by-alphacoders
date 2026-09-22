@@ -2,7 +2,7 @@ import os
 import sys
 import time
 import socket
-import subprocess
+import json
 import webbrowser
 import threading
 from pathlib import Path
@@ -27,45 +27,44 @@ def is_port_in_use(port: int) -> bool:
         s.settimeout(0.5)
         return s.connect_ex(('127.0.0.1', port)) == 0
 
-def check_existing_agrosetu_server(port: int = 8000) -> bool:
-    """Checks if the existing process on the port is actually AgroSetu responding to /api/health."""
+def check_existing_agrosetu_server(port: int) -> bool:
+    """Checks if the existing process on the port is ACTUALLY AgroSetu (PS 26033)."""
     import urllib.request
     try:
         url = f"http://127.0.0.1:{port}/api/health"
         with urllib.request.urlopen(url, timeout=1.5) as res:
             if res.status == 200:
-                return True
+                content = res.read().decode('utf-8', errors='ignore')
+                if "Problem Statement 26033" in content or "Agro" in content:
+                    return True
     except Exception:
         pass
     return False
 
-def free_port_windows(port: int = 8000):
-    """Attempts to kill any stale process holding the port on Windows."""
-    try:
-        cmd = f'netstat -ano | findstr :{port}'
-        output = subprocess.check_output(cmd, shell=True, text=True)
-        for line in output.strip().splitlines():
-            parts = line.split()
-            if len(parts) >= 5 and 'LISTENING' in line.upper():
-                pid = parts[-1]
-                if pid and pid != str(os.getpid()):
-                    print(f"[*] Releasing stale port {port} (Terminating PID: {pid})...")
-                    subprocess.run(f'taskkill /F /PID {pid}', shell=True, capture_output=True)
-                    time.sleep(1)
-    except Exception:
-        pass
+def find_best_port() -> int:
+    """
+    Finds the best port for AgroSetu:
+    1. If an existing AgroSetu instance is already running on any port, return that port.
+    2. Otherwise, check 8000. If 8000 is free, return 8000.
+    3. If 8000 is taken by another application (like AutoDataScientist), return first free port (8005, 8080, 8001...).
+    """
+    candidate_ports = [8000, 8005, 8080, 8001, 8002]
+    
+    # First, check if AgroSetu is ALREADY running on any of these ports
+    for p in candidate_ports:
+        if is_port_in_use(p) and check_existing_agrosetu_server(p):
+            return p
 
-def find_available_port(start_port: int = 8000) -> int:
-    """Finds the first available port among 8000, 8001, 8002, 8080."""
-    candidate_ports = [start_port, 8001, 8002, 8080, 8888]
+    # If not already running, pick the first completely free port
     for p in candidate_ports:
         if not is_port_in_use(p):
             return p
-    return start_port
+
+    return 8005
 
 def launch_browser(url: str):
     time.sleep(1.8)
-    print(f"\n[+] Automatically opening browser: {url}")
+    print(f"\n[+] Opening web browser at: {url} ...")
     webbrowser.open(url)
 
 def main():
@@ -84,33 +83,25 @@ def main():
     except Exception as e:
         print(f"[!] Warning during DB check: {e}")
 
-    # 2. Port Check & Conflict Resolution
-    target_port = 8000
-    if is_port_in_use(target_port):
-        if check_existing_agrosetu_server(target_port):
-            dashboard_url = f"http://127.0.0.1:{target_port}"
-            print(f"\n[OK] AgroSetu server is ALREADY active and healthy on {dashboard_url}!")
-            print(f"[+] Opening browser now...")
-            webbrowser.open(dashboard_url)
-            print("\n" + "=" * 75)
-            print(f"  DASHBOARD URL: {dashboard_url}")
-            print("  Interactive Swagger Docs: http://127.0.0.1:8000/docs")
-            print("  (Server is already running in the background. Enjoy your dashboard!)")
-            print("=" * 75)
-            input("\nPress Enter to exit this launcher window...")
-            return
-
-        # Not responding to health check, try to free the port
-        print(f"[*] Port {target_port} is busy with a stale process. Attempting to free port...")
-        free_port_windows(target_port)
-        time.sleep(1)
-
-        if is_port_in_use(target_port):
-            target_port = find_available_port(8001)
-            print(f"[!] Port 8000 remained locked. Switching seamlessly to port {target_port}...")
-
+    # 2. Find Best Port without collisions
+    target_port = find_best_port()
     dashboard_url = f"http://127.0.0.1:{target_port}"
-    print(f"\n[+] Target Server URL: {dashboard_url}")
+
+    # If AgroSetu is already running on this port, simply open browser!
+    if is_port_in_use(target_port) and check_existing_agrosetu_server(target_port):
+        print(f"\n[OK] AgroSetu server is ALREADY active and healthy on {dashboard_url}!")
+        print(f"[+] Opening browser now...")
+        webbrowser.open(dashboard_url)
+        print("\n" + "=" * 75)
+        print(f"  DASHBOARD URL: {dashboard_url}")
+        print(f"  Interactive Swagger Docs: {dashboard_url}/docs")
+        print("  (Server is active in the background. Enjoy your dashboard!)")
+        print("=" * 75)
+        input("\nPress Enter to exit this launcher window...")
+        return
+
+    print(f"\n[+] Selected Clean Port: {target_port}")
+    print(f"[+] Dashboard URL: {dashboard_url}")
 
     # 3. Schedule Browser Open
     threading.Thread(target=launch_browser, args=(dashboard_url,), daemon=True).start()
@@ -124,9 +115,10 @@ def main():
         uvicorn.run("main:app", host="127.0.0.1", port=target_port, reload=False, app_dir=str(BACKEND_DIR))
     except OSError as e:
         if "10048" in str(e):
-            print(f"\n[!] Port {target_port} had a bind collision. Retrying on alternate port...")
-            alt_port = find_available_port(target_port + 1)
-            webbrowser.open(f"http://127.0.0.1:{alt_port}")
+            alt_port = 8005 if target_port != 8005 else 8080
+            print(f"\n[!] Port {target_port} was locked. Retrying on alternate port {alt_port}...")
+            alt_url = f"http://127.0.0.1:{alt_port}"
+            webbrowser.open(alt_url)
             uvicorn.run("main:app", host="127.0.0.1", port=alt_port, reload=False, app_dir=str(BACKEND_DIR))
         else:
             raise e
