@@ -1,0 +1,114 @@
+{
+  "scenario_title": "5 Farmers Multi-Stop Agro Logistics Corridor",
+  "problem_statement": "Problem Statement 26033 (Point 4)",
+  "solved_by": "Rohit Naik",
+  "central_destination_hub": {
+    "name": "Pune Central Agro-Logistics Hub & Market Yard (Gultekdi)",
+    "latitude": 18.4900,
+    "longitude": 73.8650,
+    "city": "Pune",
+    "district": "Pune"
+  },
+  "five_cities_farmers": [
+    {
+      "id": "A",
+      "city": "Nashik",
+      "farmer_label": "Farmer A",
+      "farmer_name": "Ramesh Patil",
+      "fpo_name": "Nashik Sahyadri Farmer Producer Co.",
+      "produce_type": "Tomato & Grapes (टमाटर एवं अंगूर)",
+      "pickup_qty_kg": 850,
+      "latitude": 19.9975,
+      "longitude": 73.7898,
+      "one_way_to_pune_hub_km": 212.0,
+      "unoptimized_round_trip_km": 424.0,
+      "unoptimized_diesel_liters": 56.5,
+      "unoptimized_trip_cost_inr": 6140.0
+    },
+    {
+      "id": "B",
+      "city": "Sangamner",
+      "farmer_label": "Farmer B",
+      "farmer_name": "Sunita Shinde",
+      "fpo_name": "Sangamner Agro FPO",
+      "produce_type": "Green Chillies & Onions (हरी मिर्च एवं कांदा)",
+      "pickup_qty_kg": 620,
+      "latitude": 19.5761,
+      "longitude": 74.2070,
+      "one_way_to_pune_hub_km": 148.0,
+      "unoptimized_round_trip_km": 296.0,
+      "unoptimized_diesel_liters": 39.5,
+      "unoptimized_trip_cost_inr": 4530.0
+    },
+    {
+      "id": "C",
+      "city": "Ahmednagar",
+      "farmer_label": "Farmer C",
+      "farmer_name": "Balasaheb Gadakh",
+      "fpo_name": "Ahmednagar Krushi Vikas Samiti",
+      "produce_type": "Bhagwa Pomegranates & Wheat (अनार एवं गेहूं)",
+      "pickup_qty_kg": 950,
+      "latitude": 19.0948,
+      "longitude": 74.7480,
+      "one_way_to_pune_hub_km": 125.0,
+      "unoptimized_round_trip_km": 250.0,
+      "unoptimized_diesel_liters": 33.3,
+      "unoptimized_trip_cost_inr": 3950.0
+    },
+    {
+      "id": "D",
+      "city": "Pune",
+      "farmer_label": "Farmer D",
+      "farmer_name": "Vitthalrao Kadam",
+      "fpo_name": "Pune Peri-Urban Vegetable Growers",
+      "produce_type": "Capsicum & Leafy Greens (शिमला मिर्च एवं हरी सब्जियां)",
+      "pickup_qty_kg": 700,
+      "latitude": 18.5204,
+      "longitude": 73.8567,
+      "one_way_to_pune_hub_km": 42.0,
+      "unoptimized_round_trip_km": 84.0,
+      "unoptimized_diesel_liters": 11.2,
+      "unoptimized_trip_cost_inr": 1860.0
+    },
+    {
+      "id": "E",
+      "city": "Satara",
+      "farmer_label": "Farmer E",
+      "farmer_name": "Anand Bhosale",
+      "fpo_name": "Satara Hill-Produce Producer Co.",
+      "produce_type": "Ginger & Mountain Strawberries (अदरक एवं स्ट्रॉबेरी)",
+      "pickup_qty_kg": 500,
+      "latitude": 17.6805,
+      "longitude": 74.0183,
+      "one_way_to_pune_hub_km": 117.0,
+      "unoptimized_round_trip_km": 234.0,
+      "unoptimized_diesel_liters": 31.2,
+      "unoptimized_trip_cost_inr": 3750.0
+    }
+  ],
+  "ai_optimized_pooled_route": {
+    "total_cargo_weight_kg": 3620,
+    "ordered_stops": [
+      { "step": 1, "city": "Nashik", "farmer": "Farmer A (Ramesh Patil)", "pickup_kg": 850, "leg_km": 0.0, "cumulative_cargo_kg": 850 },
+      { "step": 2, "city": "Sangamner", "farmer": "Farmer B (Sunita Shinde)", "pickup_kg": 620, "leg_km": 82.0, "cumulative_cargo_kg": 1470 },
+      { "step": 3, "city": "Ahmednagar", "farmer": "Farmer C (Balasaheb Gadakh)", "pickup_kg": 950, "leg_km": 99.9, "cumulative_cargo_kg": 2420 },
+      { "step": 4, "city": "Pune", "farmer": "Farmer D (Vitthalrao Kadam)", "pickup_kg": 700, "leg_km": 145.3, "cumulative_cargo_kg": 3120 },
+      { "step": 5, "city": "Satara", "farmer": "Farmer E (Anand Bhosale)", "pickup_kg": 500, "leg_km": 121.5, "cumulative_cargo_kg": 3620 },
+      { "step": 6, "city": "Pune Hub", "farmer": "Central Agro Distribution Center", "pickup_kg": 0, "leg_km": 117.1, "cumulative_cargo_kg": 3620 }
+    ],
+    "savings_summary": {
+      "unoptimized_total_distance_km": 1288.9,
+      "ai_optimized_total_distance_km": 565.8,
+      "distance_saved_km": 723.1,
+      "distance_saved_pct": 56.1,
+      "unoptimized_diesel_liters": 171.9,
+      "ai_optimized_diesel_liters": 87.0,
+      "diesel_saved_liters": 84.9,
+      "unoptimized_cost_inr": 20245.0,
+      "ai_optimized_cost_inr": 10722.0,
+      "cost_saved_inr": 9523.0,
+      "cost_saved_pct": 47.0,
+      "co2_emissions_saved_kg": 227.5
+    }
+  }
+}
