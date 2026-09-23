@@ -67,6 +67,39 @@ body {
   background: linear-gradient(135deg, #3b82f6, #1d4ed8);
 }
 
+.marker-current-vehicle {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.4);
+}
+
+.marker-breakdown {
+  background: linear-gradient(135deg, #ef4444, #b91c1c);
+  animation: breakdown-pulse 1.4s infinite;
+  border: 2px solid #ffffff;
+}
+
+@keyframes breakdown-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.8); }
+  70% { box-shadow: 0 0 0 16px rgba(239, 68, 68, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+.marker-backup-vehicle {
+  background: linear-gradient(135deg, #10b981, #047857);
+  animation: backup-pulse 1.6s infinite;
+  border: 2px solid #ffffff;
+}
+
+@keyframes backup-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.8); }
+  70% { box-shadow: 0 0 0 14px rgba(16, 185, 129, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+.marker-destination {
+  background: linear-gradient(135deg, #7c3aed, #4c1d95);
+}
+
 /* Animations */
 @keyframes fadeIn {
   from {

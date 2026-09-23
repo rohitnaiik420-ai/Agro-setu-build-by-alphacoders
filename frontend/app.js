@@ -60,6 +60,12 @@ function switchTab(tabId) {
   } else if (tabId === 'logistics') {
     loadShipments();
     loadVehicles();
+    setTimeout(() => {
+      initLogisticsGpsMap();
+      if (currentTrackingShipmentId) {
+        loadLogisticsTracking(currentTrackingShipmentId);
+      }
+    }, 120);
   } else if (tabId === 'buyer' || tabId === 'farmer') {
     loadProducts();
   }
@@ -352,6 +358,7 @@ async function loadShipments() {
     if (!res.ok) return;
     const shipments = await res.json();
     renderShipments(shipments);
+    populateGpsShipmentDropdown(shipments);
   } catch (err) {
     console.error("Error loading shipments:", err);
   }
@@ -422,6 +429,10 @@ function renderShipments(shipments) {
 
           ${!isDelivered ? `
             <div class="flex items-center space-x-1.5">
+              <button onclick="focusGpsShipment(${s.id})" class="bg-slate-100 hover:bg-blue-50 text-blue-700 font-bold px-2 py-1 rounded text-[11px] border border-blue-200 transition flex items-center space-x-1">
+                <i class="fa-solid fa-location-crosshairs text-blue-600"></i>
+                <span>Live GPS</span>
+              </button>
               <button onclick="advanceShipmentStatus(${s.id}, '${s.status}')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-2.5 py-1 rounded text-[11px] transition">
                 Advance Status ➔
               </button>
@@ -525,6 +536,390 @@ async function handleCreateShipment(e) {
     }
   } catch (err) {
     showToast("Error scheduling dispatch", "error");
+  }
+}
+
+// ==================== MODULE 3B: GPS LOGISTICS TRACKING & BREAKDOWN RECOVERY ====================
+
+let logisticsMapInstance = null;
+let logisticsMarkers = [];
+let logisticsPolylines = [];
+let currentTrackingShipmentId = null;
+let currentTrackingData = null;
+
+function initLogisticsGpsMap() {
+  const mapDiv = document.getElementById('logistics-gps-map');
+  if (!mapDiv) return;
+
+  if (!logisticsMapInstance) {
+    // Center over Maharashtra Agro-Corridor (Nashik -> Sangamner -> Pune)
+    logisticsMapInstance = L.map('logistics-gps-map').setView([19.2, 74.0], 8);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18,
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(logisticsMapInstance);
+  } else {
+    logisticsMapInstance.invalidateSize();
+  }
+}
+
+function populateGpsShipmentDropdown(shipments) {
+  const select = document.getElementById('gps-shipment-select');
+  if (!select) return;
+
+  const previousVal = currentTrackingShipmentId || select.value;
+  select.innerHTML = '';
+
+  shipments.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = `${s.tracking_no} - ${s.cargo_description} (${s.pickup_location} ➔ ${s.delivery_location})`;
+    select.appendChild(opt);
+  });
+
+  if (previousVal && shipments.some(s => s.id == previousVal)) {
+    select.value = previousVal;
+    currentTrackingShipmentId = previousVal;
+  } else if (shipments.length > 0) {
+    select.value = shipments[0].id;
+    currentTrackingShipmentId = shipments[0].id;
+  }
+
+  // Load tracking data for selected shipment
+  if (currentTrackingShipmentId) {
+    loadLogisticsTracking(currentTrackingShipmentId);
+  }
+}
+
+function onGpsShipmentChange() {
+  const select = document.getElementById('gps-shipment-select');
+  if (!select) return;
+  currentTrackingShipmentId = select.value;
+  loadLogisticsTracking(currentTrackingShipmentId);
+}
+
+function focusGpsShipment(shipmentId) {
+  const select = document.getElementById('gps-shipment-select');
+  if (select) select.value = shipmentId;
+  currentTrackingShipmentId = shipmentId;
+  loadLogisticsTracking(shipmentId);
+
+  const mapEl = document.getElementById('logistics-gps-map');
+  if (mapEl) {
+    mapEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+}
+
+async function loadLogisticsTracking(shipmentId) {
+  initLogisticsGpsMap();
+  if (!shipmentId) return;
+
+  try {
+    const res = await fetch(`/api/logistics/tracking/${shipmentId}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    currentTrackingData = data;
+    renderGpsTrackingView(data);
+  } catch (err) {
+    console.error("GPS Tracking fetch error:", err);
+  }
+}
+
+function renderGpsTrackingView(data) {
+  const isBreakdown = data.breakdown_status === 'BREAKDOWN';
+
+  // 1. Update Telemetry Card fields
+  const elTrackingNo = document.getElementById('telemetry-tracking-no');
+  const elCargo = document.getElementById('telemetry-cargo-desc');
+  const elVeh = document.getElementById('telemetry-primary-veh');
+  const elDriver = document.getElementById('telemetry-primary-driver');
+  const elCoords = document.getElementById('telemetry-coords');
+  const elLandmark = document.getElementById('telemetry-landmark');
+  const elDest = document.getElementById('telemetry-dest');
+  const elBadge = document.getElementById('telemetry-status-badge');
+  const elRisk = document.getElementById('telemetry-risk');
+
+  if (elTrackingNo) elTrackingNo.innerText = data.tracking_no;
+  if (elCargo) elCargo.innerText = `${data.cargo_description} (${data.weight_kg} kg)`;
+  if (elVeh) elVeh.innerText = `${data.vehicle_no || 'Assigned Van'}`;
+  if (elDriver) elDriver.innerText = `${data.driver_name || 'Santosh'} (${data.driver_phone || '9890123987'})`;
+  if (elCoords) elCoords.innerText = `${Number(data.current_lat).toFixed(4)}° N, ${Number(data.current_lon).toFixed(4)}° E`;
+  if (elLandmark) elLandmark.innerText = data.current_location_desc || 'NH-60 Agro Transit Corridor';
+  if (elDest) elDest.innerText = data.delivery_location || 'Pune Central APMC Hub';
+
+  // 2. Breakdown Alert Banner & Buttons
+  const alertBanner = document.getElementById('breakdown-alert-banner');
+  const btnSimulate = document.getElementById('btn-simulate-breakdown');
+  const btnResolve = document.getElementById('btn-resolve-breakdown');
+  const backupCard = document.getElementById('telemetry-backup-card');
+
+  if (isBreakdown) {
+    if (elBadge) {
+      elBadge.className = 'px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-rose-100 text-rose-800 border border-rose-300';
+      elBadge.innerHTML = '<i class="fa-solid fa-triangle-exclamation mr-1"></i> BREAKDOWN DETECTED';
+    }
+    if (elRisk) {
+      elRisk.className = 'text-rose-600 font-bold';
+      elRisk.innerText = 'High (Reefer Backup Dispatched)';
+    }
+
+    if (alertBanner) {
+      alertBanner.classList.remove('hidden');
+      document.getElementById('alert-shipment-id').innerText = data.tracking_no;
+      document.getElementById('alert-title').innerText = `Vehicle Breakdown: Food Shipment Halted on NH-60`;
+      document.getElementById('alert-desc').innerText = `Breakdown reason: "${data.breakdown_reason || 'Engine Overheating'}". Nearest backup vehicle identified and dispatched!`;
+      
+      if (data.backup_vehicle) {
+        document.getElementById('alert-backup-eta').innerText = `~${data.backup_vehicle.eta_mins} mins`;
+        document.getElementById('alert-backup-veh-no').innerText = data.backup_vehicle.vehicle_no;
+        document.getElementById('alert-backup-veh-type').innerText = data.backup_vehicle.vehicle_type || 'Reefer Van';
+        document.getElementById('alert-backup-dist').innerText = `${data.backup_vehicle.distance_km} km away`;
+        document.getElementById('alert-backup-driver').innerText = `${data.backup_vehicle.driver_name} (${data.backup_vehicle.driver_phone})`;
+      }
+    }
+
+    if (backupCard && data.backup_vehicle) {
+      backupCard.classList.remove('hidden');
+      document.getElementById('telemetry-backup-dist-badge').innerText = `${data.backup_vehicle.distance_km} km`;
+      document.getElementById('telemetry-backup-veh').innerText = `${data.backup_vehicle.vehicle_no} (${data.backup_vehicle.vehicle_type})`;
+      document.getElementById('telemetry-backup-driver').innerText = `Driver: ${data.backup_vehicle.driver_name} (${data.backup_vehicle.driver_phone})`;
+      document.getElementById('telemetry-backup-eta-val').innerText = `~${data.backup_vehicle.eta_mins} minutes`;
+    }
+
+    if (btnSimulate) btnSimulate.classList.add('hidden');
+    if (btnResolve) btnResolve.classList.remove('hidden');
+  } else {
+    if (elBadge) {
+      elBadge.className = 'px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-blue-100 text-blue-800';
+      elBadge.innerHTML = '<i class="fa-solid fa-truck-moving mr-1"></i> Normal Transit';
+    }
+    if (elRisk) {
+      elRisk.className = 'text-emerald-600 font-bold';
+      elRisk.innerText = 'Safe (Under 2 hrs)';
+    }
+
+    if (alertBanner) alertBanner.classList.add('hidden');
+    if (backupCard) backupCard.classList.add('hidden');
+    if (btnSimulate) btnSimulate.classList.remove('hidden');
+    if (btnResolve) btnResolve.classList.add('hidden');
+  }
+
+  // 3. Render Leaflet Map Markers & Polylines
+  if (!logisticsMapInstance) return;
+
+  // Clear existing markers and lines
+  logisticsMarkers.forEach(m => logisticsMapInstance.removeLayer(m));
+  logisticsMarkers = [];
+  logisticsPolylines.forEach(p => logisticsMapInstance.removeLayer(p));
+  logisticsPolylines = [];
+
+  const curPos = [data.current_lat, data.current_lon];
+  const destPos = [data.destination_lat, data.destination_lon];
+  const boundsPoints = [curPos, destPos];
+
+  if (isBreakdown) {
+    // 🔴 Breakdown Marker
+    const breakdownIcon = L.divIcon({
+      className: 'custom-pin',
+      html: `<div class="custom-leaflet-marker marker-breakdown"><i class="fa-solid fa-triangle-exclamation"></i></div>`,
+      iconSize: [36, 36],
+      iconAnchor: [18, 18]
+    });
+    const bMarker = L.marker(curPos, { icon: breakdownIcon }).addTo(logisticsMapInstance);
+    bMarker.bindPopup(`
+      <div class="text-xs">
+        <strong class="text-rose-600"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Vehicle Breakdown Site</strong><br/>
+        <span><strong>Shipment:</strong> ${data.tracking_no} (${data.cargo_description})</span><br/>
+        <span><strong>Primary Vehicle:</strong> ${data.vehicle_no}</span><br/>
+        <span><strong>Location:</strong> ${data.current_location_desc}</span><br/>
+        <span class="text-rose-700 font-bold">Status: Stopped - Awaiting Backup</span>
+      </div>
+    `).openPopup();
+    logisticsMarkers.push(bMarker);
+
+    // 🟢 Nearest Backup Vehicle Marker
+    if (data.backup_vehicle) {
+      const backupPos = [data.backup_vehicle.lat, data.backup_vehicle.lon];
+      boundsPoints.push(backupPos);
+
+      const backupIcon = L.divIcon({
+        className: 'custom-pin',
+        html: `<div class="custom-leaflet-marker marker-backup-vehicle"><i class="fa-solid fa-truck-fast"></i></div>`,
+        iconSize: [36, 36],
+        iconAnchor: [18, 18]
+      });
+      const bkMarker = L.marker(backupPos, { icon: backupIcon }).addTo(logisticsMapInstance);
+      bkMarker.bindPopup(`
+        <div class="text-xs">
+          <strong class="text-emerald-700"><i class="fa-solid fa-truck-fast mr-1"></i>Nearest Available Backup Vehicle</strong><br/>
+          <span><strong>Vehicle:</strong> ${data.backup_vehicle.vehicle_no} (${data.backup_vehicle.vehicle_type})</span><br/>
+          <span><strong>Driver:</strong> ${data.backup_vehicle.driver_name} (${data.backup_vehicle.driver_phone})</span><br/>
+          <span><strong>Distance:</strong> <strong class="text-blue-700">${data.backup_vehicle.distance_km} km</strong></span><br/>
+          <span class="text-emerald-700 font-bold">Rescue ETA: ~${data.backup_vehicle.eta_mins} mins</span>
+        </div>
+      `);
+      logisticsMarkers.push(bkMarker);
+
+      // Rescue Polyline (Backup Vehicle -> Breakdown Site)
+      const rescuePolyline = L.polyline([backupPos, curPos], {
+        color: '#dc2626',
+        weight: 4,
+        opacity: 0.9,
+        dashArray: '6, 8'
+      }).addTo(logisticsMapInstance);
+      logisticsPolylines.push(rescuePolyline);
+    }
+
+    // 🏁 Destination Marker
+    const destIcon = L.divIcon({
+      className: 'custom-pin',
+      html: `<div class="custom-leaflet-marker marker-destination"><i class="fa-solid fa-flag-checkered"></i></div>`,
+      iconSize: [34, 34],
+      iconAnchor: [17, 17]
+    });
+    const dMarker = L.marker(destPos, { icon: destIcon }).addTo(logisticsMapInstance);
+    dMarker.bindPopup(`
+      <div class="text-xs">
+        <strong class="text-purple-700"><i class="fa-solid fa-flag-checkered mr-1"></i>Final Destination Hub</strong><br/>
+        <span>${data.delivery_location}</span><br/>
+        <span class="text-slate-500">Produce delivery resumes once backup arrives</span>
+      </div>
+    `);
+    logisticsMarkers.push(dMarker);
+
+    // Remaining Route Polyline (Breakdown Site -> Destination Hub)
+    const transitPolyline = L.polyline([curPos, destPos], {
+      color: '#6366f1',
+      weight: 3,
+      opacity: 0.6,
+      dashArray: '5, 5'
+    }).addTo(logisticsMapInstance);
+    logisticsPolylines.push(transitPolyline);
+
+  } else {
+    // 🔵 Normal Transit: Current Vehicle Marker
+    const vehIcon = L.divIcon({
+      className: 'custom-pin',
+      html: `<div class="custom-leaflet-marker marker-current-vehicle"><i class="fa-solid fa-truck"></i></div>`,
+      iconSize: [36, 36],
+      iconAnchor: [18, 18]
+    });
+    const vMarker = L.marker(curPos, { icon: vehIcon }).addTo(logisticsMapInstance);
+    vMarker.bindPopup(`
+      <div class="text-xs">
+        <strong class="text-blue-700"><i class="fa-solid fa-truck mr-1"></i>Active Transit (On Schedule)</strong><br/>
+        <span><strong>Shipment:</strong> ${data.tracking_no}</span><br/>
+        <span><strong>Vehicle:</strong> ${data.vehicle_no || 'Tata 407 Reefer'}</span><br/>
+        <span><strong>Driver:</strong> ${data.driver_name || 'Santosh Shinde'}</span><br/>
+        <span><strong>Cargo:</strong> ${data.cargo_description} (${data.weight_kg} kg)</span><br/>
+        <span class="text-emerald-700 font-bold">Status: Moving smoothly on NH-60</span>
+      </div>
+    `).openPopup();
+    logisticsMarkers.push(vMarker);
+
+    // 🏁 Destination Marker
+    const destIcon = L.divIcon({
+      className: 'custom-pin',
+      html: `<div class="custom-leaflet-marker marker-destination"><i class="fa-solid fa-flag-checkered"></i></div>`,
+      iconSize: [34, 34],
+      iconAnchor: [17, 17]
+    });
+    const dMarker = L.marker(destPos, { icon: destIcon }).addTo(logisticsMapInstance);
+    dMarker.bindPopup(`
+      <div class="text-xs">
+        <strong class="text-purple-700"><i class="fa-solid fa-flag-checkered mr-1"></i>Destination Hub</strong><br/>
+        <span>${data.delivery_location}</span>
+      </div>
+    `);
+    logisticsMarkers.push(dMarker);
+
+    // Route Polyline (Pickup -> Current -> Destination)
+    if (data.pickup_lat && data.pickup_lon) {
+      boundsPoints.push([data.pickup_lat, data.pickup_lon]);
+      const fullRoute = L.polyline([[data.pickup_lat, data.pickup_lon], curPos, destPos], {
+        color: '#2563eb',
+        weight: 4,
+        opacity: 0.8
+      }).addTo(logisticsMapInstance);
+      logisticsPolylines.push(fullRoute);
+    } else {
+      const normalRoute = L.polyline([curPos, destPos], {
+        color: '#2563eb',
+        weight: 4,
+        opacity: 0.8
+      }).addTo(logisticsMapInstance);
+      logisticsPolylines.push(normalRoute);
+    }
+  }
+
+  // Auto-fit map bounds
+  if (boundsPoints.length >= 2) {
+    logisticsMapInstance.fitBounds(boundsPoints, { padding: [45, 45] });
+  }
+}
+
+async function simulateVehicleBreakdown() {
+  if (!currentTrackingShipmentId) {
+    showToast("Please select a shipment to track first", "error");
+    return;
+  }
+
+  const btn = document.getElementById('btn-simulate-breakdown');
+  if (btn) btn.disabled = true;
+
+  try {
+    const res = await fetch(`/api/logistics/breakdown/${currentTrackingShipmentId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        reason: "Engine Overheating & Radiator Hose Leakage on NH-60",
+        breakdown_lat: 19.4520,
+        breakdown_lon: 74.1500
+      })
+    });
+
+    if (res.ok) {
+      const respData = await res.json();
+      showToast(`🚨 Breakdown Detected! Backup ${respData.backup_vehicle.vehicle_no} dispatched (~${respData.backup_vehicle.distance_km} km away)`, "error");
+      await loadLogisticsTracking(currentTrackingShipmentId);
+      loadVehicles();
+      loadShipments();
+    } else {
+      showToast("Failed to simulate breakdown", "error");
+    }
+  } catch (err) {
+    console.error("Simulate breakdown error:", err);
+    showToast("Server error during breakdown simulation", "error");
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function resolveVehicleBreakdown() {
+  if (!currentTrackingShipmentId) return;
+
+  const btn = document.getElementById('btn-resolve-breakdown');
+  if (btn) btn.disabled = true;
+
+  try {
+    const res = await fetch(`/api/logistics/resolve-breakdown/${currentTrackingShipmentId}`, {
+      method: 'POST'
+    });
+
+    if (res.ok) {
+      const respData = await res.json();
+      showToast("✅ Backup vehicle arrived! Cargo transferred and transit resumed safely.", "success");
+      await loadLogisticsTracking(currentTrackingShipmentId);
+      loadVehicles();
+      loadShipments();
+    } else {
+      showToast("Failed to resolve breakdown", "error");
+    }
+  } catch (err) {
+    console.error("Resolve breakdown error:", err);
+    showToast("Server error during breakdown resolution", "error");
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 

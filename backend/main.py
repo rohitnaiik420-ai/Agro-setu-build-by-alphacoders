@@ -17,7 +17,7 @@ if str(BACKEND_DIR) not in sys.path:
 
 from database import get_db_connection, init_db
 from forecasting_engine import calculate_forecast
-from route_optimizer import solve_route_optimization, DEFAULT_WAYPOINTS, haversine_distance
+from route_optimizer import solve_route_optimization, DEFAULT_WAYPOINTS, haversine_distance, CITY_COORDINATES
 from seed_data import seed_all
 
 # Directory setup
@@ -94,6 +94,11 @@ class ShipmentCreateSchema(BaseModel):
 
 class ShipmentStatusUpdateSchema(BaseModel):
     status: str
+
+class BreakdownTriggerSchema(BaseModel):
+    reason: Optional[str] = "Engine Overheating on NH-60 Corridor"
+    breakdown_lat: Optional[float] = None
+    breakdown_lon: Optional[float] = None
 
 class RouteOptimizeRequest(BaseModel):
     waypoints: Optional[List[Dict[str, Any]]] = None
@@ -407,6 +412,266 @@ def update_shipment_status(shipment_id: int, payload: ShipmentStatusUpdateSchema
     conn.commit()
     conn.close()
     return {"message": f"Shipment status updated to {payload.status}"}
+
+# ----- 2B. GPS LOGISTICS TRACKING & BREAKDOWN RECOVERY -----
+
+@app.get("/api/logistics/tracking/{shipment_id}")
+def get_shipment_gps_tracking(shipment_id: str):
+    """
+    Returns live GPS telemetry, breakdown alert status, and backup vehicle details
+    for any active shipment (matching Problem Statement 26033).
+    """
+    conn = get_db_connection()
+    c = conn.cursor()
+
+    if shipment_id.isdigit():
+        shipment = c.execute("SELECT * FROM shipments WHERE id = ?", (int(shipment_id),)).fetchone()
+    else:
+        shipment = c.execute("SELECT * FROM shipments WHERE tracking_no = ?", (shipment_id,)).fetchone()
+
+    if not shipment:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Shipment not found")
+
+    s_dict = dict(shipment)
+
+    # Resolve destination lat/lon
+    dest_name = (s_dict.get("delivery_location") or "").lower()
+    dest_lat, dest_lon = 18.4900, 73.8650  # Default Pune Central Hub
+    for city_k, coords in CITY_COORDINATES.items():
+        if city_k in dest_name:
+            dest_lat, dest_lon = coords
+            break
+
+    # Resolve pickup lat/lon
+    pickup_name = (s_dict.get("pickup_location") or "").lower()
+    pickup_lat, pickup_lon = 19.9975, 73.7898  # Default Nashik Hub
+    for city_k, coords in CITY_COORDINATES.items():
+        if city_k in pickup_name:
+            pickup_lat, pickup_lon = coords
+            break
+
+    cur_lat = s_dict.get("current_lat") or 19.4520
+    cur_lon = s_dict.get("current_lon") or 74.1500
+    cur_desc = s_dict.get("current_location_desc") or "NH-60 Agro Transit Corridor, near Sangamner"
+
+    # Backup vehicle lookup if breakdown active
+    backup_veh = None
+    if s_dict.get("breakdown_status") == "BREAKDOWN" and s_dict.get("backup_vehicle_no"):
+        b_veh = c.execute("SELECT * FROM vehicles WHERE vehicle_no = ?", (s_dict["backup_vehicle_no"],)).fetchone()
+        b_lat = b_veh["lat"] if b_veh and "lat" in b_veh.keys() and b_veh["lat"] else 19.5761
+        b_lon = b_veh["lon"] if b_veh and "lon" in b_veh.keys() and b_veh["lon"] else 74.2070
+        backup_veh = {
+            "id": s_dict.get("backup_vehicle_id"),
+            "vehicle_no": s_dict.get("backup_vehicle_no"),
+            "vehicle_type": s_dict.get("backup_vehicle_type"),
+            "driver_name": s_dict.get("backup_driver_name"),
+            "driver_phone": s_dict.get("backup_driver_phone"),
+            "distance_km": s_dict.get("backup_distance_km"),
+            "eta_mins": s_dict.get("backup_eta_mins"),
+            "lat": b_lat,
+            "lon": b_lon,
+            "status": "Dispatched / Moving to Breakdown Site"
+        }
+
+    conn.close()
+
+    return {
+        "id": s_dict["id"],
+        "tracking_no": s_dict["tracking_no"],
+        "cargo_description": s_dict["cargo_description"],
+        "weight_kg": s_dict["weight_kg"],
+        "pickup_location": s_dict["pickup_location"],
+        "collection_center": s_dict["collection_center"],
+        "delivery_location": s_dict["delivery_location"],
+        "status": s_dict["status"],
+        "eta_timestamp": s_dict["eta_timestamp"],
+        "vehicle_id": s_dict.get("vehicle_id"),
+        "vehicle_no": s_dict.get("vehicle_no"),
+        "driver_name": s_dict.get("driver_name"),
+        "driver_phone": s_dict.get("driver_phone"),
+        "current_lat": cur_lat,
+        "current_lon": cur_lon,
+        "current_location_desc": cur_desc,
+        "pickup_lat": pickup_lat,
+        "pickup_lon": pickup_lon,
+        "destination_lat": dest_lat,
+        "destination_lon": dest_lon,
+        "breakdown_status": s_dict.get("breakdown_status") or "NORMAL",
+        "breakdown_reason": s_dict.get("breakdown_reason") or "",
+        "breakdown_lat": s_dict.get("breakdown_lat") or 0.0,
+        "breakdown_lon": s_dict.get("breakdown_lon") or 0.0,
+        "breakdown_timestamp": s_dict.get("breakdown_timestamp") or "",
+        "backup_vehicle": backup_veh
+    }
+
+@app.post("/api/logistics/breakdown/{shipment_id}")
+def trigger_vehicle_breakdown(shipment_id: str, payload: Optional[BreakdownTriggerSchema] = None):
+    """
+    Simulates / triggers a vehicle breakdown along transit.
+    1. Sets breakdown status and logs GPS location.
+    2. Searches fleet for nearest available backup vehicle.
+    3. Calculates real distance via Haversine formula and estimated arrival time.
+    4. Dispatches the backup vehicle and updates telemetry.
+    """
+    reason = payload.reason if payload and payload.reason else "Engine Overheating on NH-60 Transit Corridor"
+    conn = get_db_connection()
+    c = conn.cursor()
+
+    if shipment_id.isdigit():
+        shipment = c.execute("SELECT * FROM shipments WHERE id = ?", (int(shipment_id),)).fetchone()
+    else:
+        shipment = c.execute("SELECT * FROM shipments WHERE tracking_no = ?", (shipment_id,)).fetchone()
+
+    if not shipment:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Shipment not found")
+
+    s_dict = dict(shipment)
+    b_lat = (payload.breakdown_lat if (payload and payload.breakdown_lat is not None)
+             else (s_dict.get("current_lat") or 19.4520))
+    b_lon = (payload.breakdown_lon if (payload and payload.breakdown_lon is not None)
+             else (s_dict.get("current_lon") or 74.1500))
+    timestamp = datetime.datetime.now().strftime("%I:%M %p, %d %b %Y")
+
+    curr_veh_id = s_dict.get("vehicle_id")
+    if curr_veh_id:
+        c.execute("UPDATE vehicles SET status = 'Under Repair (Breakdown)' WHERE id = ?", (curr_veh_id,))
+
+    # Find the nearest available backup vehicle
+    candidates = c.execute("SELECT * FROM vehicles WHERE status = 'Available' AND id != ?", (curr_veh_id or 0,)).fetchall()
+    if not candidates:
+        candidates = c.execute("SELECT * FROM vehicles WHERE id != ?", (curr_veh_id or 0,)).fetchall()
+
+    if not candidates:
+        conn.close()
+        raise HTTPException(status_code=500, detail="No backup vehicles found in fleet")
+
+    best_candidate = None
+    min_dist = float("inf")
+    for cand in candidates:
+        c_dict = dict(cand)
+        c_lat = c_dict.get("lat") or 19.5761
+        c_lon = c_dict.get("lon") or 74.2070
+        dist = haversine_distance(b_lat, b_lon, c_lat, c_lon)
+        if dist < min_dist:
+            min_dist = dist
+            best_candidate = c_dict
+
+    eta_mins = max(10, int(round((min_dist / 45.0) * 60)))
+    min_dist_rounded = round(min_dist, 1)
+
+    c.execute("""
+    UPDATE shipments SET
+        breakdown_status = 'BREAKDOWN',
+        breakdown_reason = ?,
+        breakdown_lat = ?,
+        breakdown_lon = ?,
+        breakdown_timestamp = ?,
+        backup_vehicle_id = ?,
+        backup_vehicle_no = ?,
+        backup_vehicle_type = ?,
+        backup_driver_name = ?,
+        backup_driver_phone = ?,
+        backup_distance_km = ?,
+        backup_eta_mins = ?
+    WHERE id = ?;
+    """, (
+        reason, b_lat, b_lon, timestamp,
+        best_candidate["id"], best_candidate["vehicle_no"], best_candidate["vehicle_type"],
+        best_candidate["driver_name"], best_candidate["driver_phone"],
+        min_dist_rounded, eta_mins, s_dict["id"]
+    ))
+
+    c.execute("UPDATE vehicles SET status = 'Dispatched (Recovery)' WHERE id = ?", (best_candidate["id"],))
+    conn.commit()
+    conn.close()
+
+    return {
+        "status": "BREAKDOWN_DETECTED",
+        "message": f"Vehicle breakdown detected for shipment {s_dict['tracking_no']}! Nearest backup vehicle dispatched.",
+        "shipment_id": s_dict["id"],
+        "tracking_no": s_dict["tracking_no"],
+        "cargo_description": s_dict["cargo_description"],
+        "weight_kg": s_dict["weight_kg"],
+        "breakdown_location": {
+            "lat": b_lat,
+            "lon": b_lon,
+            "description": s_dict.get("current_location_desc") or "NH-60 Agro Transit Corridor (near Sangamner)"
+        },
+        "reason": reason,
+        "timestamp": timestamp,
+        "backup_vehicle": {
+            "id": best_candidate["id"],
+            "vehicle_no": best_candidate["vehicle_no"],
+            "vehicle_type": best_candidate["vehicle_type"],
+            "driver_name": best_candidate["driver_name"],
+            "driver_phone": best_candidate["driver_phone"],
+            "current_location": best_candidate["current_location"],
+            "lat": best_candidate.get("lat") or 19.5761,
+            "lon": best_candidate.get("lon") or 74.2070,
+            "distance_km": min_dist_rounded,
+            "eta_mins": eta_mins,
+            "eta_description": f"{eta_mins} mins (~{min_dist_rounded} km away)"
+        }
+    }
+
+@app.post("/api/logistics/resolve-breakdown/{shipment_id}")
+def resolve_vehicle_breakdown(shipment_id: str):
+    """
+    Transfers produce cargo to the arrived backup vehicle and resumes transit to destination.
+    """
+    conn = get_db_connection()
+    c = conn.cursor()
+
+    if shipment_id.isdigit():
+        shipment = c.execute("SELECT * FROM shipments WHERE id = ?", (int(shipment_id),)).fetchone()
+    else:
+        shipment = c.execute("SELECT * FROM shipments WHERE tracking_no = ?", (shipment_id,)).fetchone()
+
+    if not shipment:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Shipment not found")
+
+    s_dict = dict(shipment)
+    backup_veh_id = s_dict.get("backup_vehicle_id")
+    backup_veh_no = s_dict.get("backup_vehicle_no")
+
+    if backup_veh_id and backup_veh_no:
+        c.execute("""
+        UPDATE shipments SET
+            vehicle_id = ?,
+            vehicle_no = ?,
+            driver_name = ?,
+            driver_phone = ?,
+            breakdown_status = 'NORMAL',
+            breakdown_reason = '',
+            current_location_desc = 'Cargo Transferred to Backup Vehicle - Resumed Transit on NH-60'
+        WHERE id = ?;
+        """, (
+            backup_veh_id, backup_veh_no,
+            s_dict.get("backup_driver_name") or "Sunil Patil",
+            s_dict.get("backup_driver_phone") or "9822334455",
+            s_dict["id"]
+        ))
+        c.execute("UPDATE vehicles SET status = 'On Route' WHERE id = ?", (backup_veh_id,))
+    else:
+        c.execute("""
+        UPDATE shipments SET
+            breakdown_status = 'NORMAL',
+            breakdown_reason = ''
+        WHERE id = ?;
+        """, (s_dict["id"],))
+
+    conn.commit()
+    conn.close()
+
+    return {
+        "status": "RESOLVED",
+        "message": f"Breakdown resolved! Cargo transferred to {backup_veh_no or 'backup vehicle'} and transit resumed safely.",
+        "shipment_id": s_dict["id"],
+        "tracking_no": s_dict["tracking_no"]
+    }
 
 # ----- 3. AI DEMAND FORECASTING -----
 

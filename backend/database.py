@@ -153,6 +153,50 @@ def init_db():
     );
     """)
 
+    # --- Schema Migrations for GPS & Breakdown Recovery ---
+    # Ensure vehicles table has lat, lon coordinates
+    v_cols = [c[1] for c in cursor.execute("PRAGMA table_info(vehicles);").fetchall()]
+    if "lat" not in v_cols:
+        cursor.execute("ALTER TABLE vehicles ADD COLUMN lat REAL DEFAULT 18.5204;")
+    if "lon" not in v_cols:
+        cursor.execute("ALTER TABLE vehicles ADD COLUMN lon REAL DEFAULT 73.8567;")
+
+    # Ensure shipments table has breakdown recovery & live GPS columns
+    s_cols = [c[1] for c in cursor.execute("PRAGMA table_info(shipments);").fetchall()]
+    gps_breakdown_columns = [
+        ("current_lat", "REAL DEFAULT 19.4520"),
+        ("current_lon", "REAL DEFAULT 74.1500"),
+        ("current_location_desc", "TEXT DEFAULT 'NH-60 Agro-Corridor, near Sangamner'"),
+        ("breakdown_status", "TEXT DEFAULT 'NORMAL'"),
+        ("breakdown_reason", "TEXT DEFAULT ''"),
+        ("breakdown_lat", "REAL DEFAULT 0"),
+        ("breakdown_lon", "REAL DEFAULT 0"),
+        ("breakdown_timestamp", "TEXT DEFAULT ''"),
+        ("backup_vehicle_id", "INTEGER DEFAULT 0"),
+        ("backup_vehicle_no", "TEXT DEFAULT ''"),
+        ("backup_vehicle_type", "TEXT DEFAULT ''"),
+        ("backup_driver_name", "TEXT DEFAULT ''"),
+        ("backup_driver_phone", "TEXT DEFAULT ''"),
+        ("backup_distance_km", "REAL DEFAULT 0"),
+        ("backup_eta_mins", "INTEGER DEFAULT 0")
+    ]
+    for col_name, col_def in gps_breakdown_columns:
+        if col_name not in s_cols:
+            cursor.execute(f"ALTER TABLE shipments ADD COLUMN {col_name} {col_def};")
+
+    # Update known vehicle coordinates for accurate GPS distances
+    vehicle_coords = [
+        ("MH-15-EG-4412", 19.9975, 73.7898), # Nashik Hub
+        ("MH-12-PQ-8901", 19.4520, 74.1500), # En route NH-60
+        ("MH-17-BC-5520", 19.5761, 74.2070), # Sangamner Center (Nearest backup ~15 km!)
+        ("MH-16-AY-7734", 19.0948, 74.7480), # Ahmednagar Hub (~68 km)
+        ("MH-11-DF-2299", 17.6805, 74.0183), # Satara Depot (~195 km)
+        ("DL-1L-AA-3344", 28.7126, 77.1740), # Delhi Azadpur
+        ("MP-09-GF-8812", 22.7196, 75.8577)  # Indore Krishi Mandi
+    ]
+    for v_no, v_lat, v_lon in vehicle_coords:
+        cursor.execute("UPDATE vehicles SET lat = ?, lon = ? WHERE vehicle_no = ?;", (v_lat, v_lon, v_no))
+
     conn.commit()
     conn.close()
 

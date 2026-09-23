@@ -1,6 +1,6 @@
 {
   "scenario_name": "Problem Statement 26033 Canonical Test",
-  "timestamp": "2026-09-22T21:12:56.586756",
+  "timestamp": "2026-09-23T20:26:12.683703",
   "modules": {
     "part_1_marketplace": {
       "status": "PASS",
@@ -10,7 +10,7 @@
         "crop_name": "Organic Hybrid Tomato (लाल टमाटर)",
         "category": "Vegetables",
         "quantity_kg": 3500.0,
-        "available_quantity_kg": 3500.0,
+        "available_quantity_kg": 3100.0,
         "price_per_kg": 38.0,
         "location": "Nashik, Maharashtra",
         "harvest_date": "2026-09-20",
@@ -72,7 +72,7 @@
       "advisory": {
         "hindi": "ऐतिहासिक डेटा एवं Ganesh Chaturthi के प्रभाव से Pune में Tomato की मांग में +50.0% वृद्धि का अनुमान है। किसानों/FPO को सलाह दी जाती है कि वे फसल कटाई व ढुलाई को आगामी 3-5 दिनों में संरेखित करें ताकि उच्चतम मंडी भाव (Mandi Rate) प्राप्त हो सके।",
         "english": "Based on historical sales, upcoming Ganesh Chaturthi, and Monsoon conditions in Pune, Tomato demand is projected to reach ~1,500 kg (+50.0%). Recommended action for Farmers/FPOs: schedule grading & logistics dispatch for maximum mandi price realization.",
-        "recommended_dispatch_window": "22 Sep - 26 Sep",
+        "recommended_dispatch_window": "23 Sep - 27 Sep",
         "recommended_target_price_per_kg": 40.2
       }
     },

@@ -666,6 +666,198 @@
 
       </div>
 
+      <!-- ========================================================================= -->
+      <!-- NEW FEATURE: GPS-Based Vehicle Breakdown Recovery & Nearest Backup Dispatch -->
+      <!-- ========================================================================= -->
+      <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm mb-6">
+        
+        <!-- Feature Header & Controls -->
+        <div class="flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-slate-100 gap-3 mb-4">
+          <div>
+            <div class="flex items-center space-x-2">
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800 uppercase tracking-wide">
+                <i class="fa-solid fa-satellite-dish mr-1 text-blue-600"></i> Live Telemetry & Emergency Rescue
+              </span>
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 uppercase tracking-wide">
+                <i class="fa-solid fa-bolt mr-1 text-emerald-600"></i> Smart Fleet Recovery
+              </span>
+            </div>
+            <h3 class="font-extrabold text-slate-800 text-lg flex items-center space-x-2 mt-1">
+              <i class="fa-solid fa-map-location-dot text-blue-600"></i>
+              <span>GPS-Based Logistics Tracking & Vehicle Breakdown Recovery</span>
+            </h3>
+            <p class="text-xs text-slate-500">
+              Live transit positioning along agro-corridors. In case of breakdown, automatically identifies breakdown coordinates and dispatches the nearest backup vehicle.
+            </p>
+          </div>
+
+          <!-- Active Shipment Selector & Action Buttons -->
+          <div class="flex flex-wrap items-center gap-2">
+            <div class="flex items-center space-x-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5">
+              <label for="gps-shipment-select" class="text-xs font-semibold text-slate-600 whitespace-nowrap">
+                <i class="fa-solid fa-box text-slate-400 mr-1"></i>Shipment:
+              </label>
+              <select id="gps-shipment-select" onchange="onGpsShipmentChange()" class="text-xs font-bold text-slate-800 bg-transparent border-0 focus:ring-0 cursor-pointer">
+                <!-- Dynamically populated -->
+              </select>
+            </div>
+
+            <!-- Simulate Breakdown Button -->
+            <button id="btn-simulate-breakdown" onclick="simulateVehicleBreakdown()" class="bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold text-xs px-3.5 py-2 rounded-lg shadow-sm transition flex items-center space-x-1.5">
+              <i class="fa-solid fa-triangle-exclamation"></i>
+              <span>Simulate Breakdown</span>
+            </button>
+
+            <!-- Resolve / Resume Button (Hidden until breakdown) -->
+            <button id="btn-resolve-breakdown" onclick="resolveVehicleBreakdown()" class="hidden bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs px-3.5 py-2 rounded-lg shadow-sm transition flex items-center space-x-1.5">
+              <i class="fa-solid fa-truck-ramp-box"></i>
+              <span>Rescue Arrived: Transfer Cargo & Resume</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Dynamic Breakdown Alert Banner (Shown during breakdown) -->
+        <div id="breakdown-alert-banner" class="hidden mb-4 p-4 rounded-xl border border-rose-200 bg-gradient-to-r from-rose-50 via-red-50 to-orange-50 shadow-sm animate-pulse">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div class="flex items-start space-x-3">
+              <div class="w-10 h-10 rounded-full bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-md">
+                <i class="fa-solid fa-triangle-exclamation text-lg"></i>
+              </div>
+              <div>
+                <div class="flex items-center space-x-2">
+                  <span class="text-xs font-extrabold uppercase tracking-wide bg-rose-600 text-white px-2 py-0.5 rounded">
+                    EMERGENCY ALERT
+                  </span>
+                  <span id="alert-shipment-id" class="text-xs font-bold text-slate-700">SHIP-MAHA-101</span>
+                </div>
+                <h4 class="font-extrabold text-rose-900 text-sm mt-0.5" id="alert-title">
+                  Vehicle Breakdown Detected: Food shipment stopped!
+                </h4>
+                <p class="text-xs text-rose-800" id="alert-desc">
+                  Primary vehicle reported mechanical failure on NH-60. Searching nearest available backup vehicle...
+                </p>
+              </div>
+            </div>
+            <div class="bg-white/90 backdrop-blur rounded-lg p-3 border border-rose-200 text-xs shadow-sm min-w-[240px]">
+              <div class="font-bold text-slate-800 mb-1 flex items-center justify-between">
+                <span>Backup Vehicle Dispatched:</span>
+                <span id="alert-backup-eta" class="text-emerald-700 font-extrabold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">~20 mins</span>
+              </div>
+              <div class="text-slate-600 space-y-0.5 text-[11px]">
+                <div>Vehicle: <strong id="alert-backup-veh-no" class="text-slate-800">MH-17-BC-5520</strong> (<span id="alert-backup-veh-type">Tata 407 Reefer</span>)</div>
+                <div>Distance: <strong id="alert-backup-dist" class="text-blue-700">15.1 km away</strong></div>
+                <div>Driver: <strong id="alert-backup-driver" class="text-slate-800">Sunil Patil (9822334455)</strong></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Map & Telemetry 2-Column Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          
+          <!-- Interactive Map Container (2 Cols) -->
+          <div class="lg:col-span-2">
+            <!-- Map Legend -->
+            <div class="flex flex-wrap items-center gap-3 mb-2 px-1 text-xs text-slate-600">
+              <span class="flex items-center space-x-1.5">
+                <span class="w-3 h-3 rounded-full bg-blue-600 inline-block shadow-sm"></span>
+                <span class="font-semibold">🔵 Current Vehicle</span>
+              </span>
+              <span class="flex items-center space-x-1.5">
+                <span class="w-3 h-3 rounded-full bg-rose-600 inline-block shadow-sm"></span>
+                <span class="font-semibold">🔴 Breakdown Site</span>
+              </span>
+              <span class="flex items-center space-x-1.5">
+                <span class="w-3 h-3 rounded-full bg-emerald-600 inline-block shadow-sm"></span>
+                <span class="font-semibold">🟢 Nearest Backup Vehicle</span>
+              </span>
+              <span class="flex items-center space-x-1.5">
+                <span class="w-3 h-3 rounded-full bg-purple-600 inline-block shadow-sm"></span>
+                <span class="font-semibold">🏁 Destination Hub</span>
+              </span>
+            </div>
+
+            <!-- Leaflet Map Container -->
+            <div id="logistics-gps-map" class="w-full h-96 rounded-xl border border-slate-200 z-10 shadow-inner"></div>
+            
+            <div class="flex items-center justify-between text-[11px] text-slate-500 mt-2 px-1">
+              <span><i class="fa-solid fa-location-crosshairs text-blue-500 mr-1"></i>Corridor: Nashik ➔ Sangamner ➔ Pune (NH-60 Agro Transit Line)</span>
+              <span><i class="fa-solid fa-satellite text-emerald-500 mr-1"></i>Mock GPS Telemetry Active (Ready for IoT GPS)</span>
+            </div>
+          </div>
+
+          <!-- Real-Time Telemetry & Status Panel (1 Col) -->
+          <div class="lg:col-span-1 bg-slate-50 rounded-xl border border-slate-200 p-4 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between pb-3 border-b border-slate-200 mb-3">
+                <h4 class="font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center space-x-1.5">
+                  <i class="fa-solid fa-gauge-high text-blue-600"></i>
+                  <span>Live Shipment Telemetry</span>
+                </h4>
+                <span id="telemetry-status-badge" class="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-blue-100 text-blue-800">
+                  Normal Transit
+                </span>
+              </div>
+
+              <!-- Shipment Core Details -->
+              <div class="space-y-2.5 text-xs">
+                <div class="bg-white p-2.5 rounded-lg border border-slate-200/80 shadow-2xs">
+                  <span class="text-slate-400 text-[10px] block font-semibold uppercase">Tracking ID & Produce</span>
+                  <div class="font-bold text-slate-900" id="telemetry-tracking-no">SHIP-MAHA-101</div>
+                  <div class="text-slate-600 text-[11px]" id="telemetry-cargo-desc">Fresh Tomatoes & Pomegranates (850 kg)</div>
+                </div>
+
+                <div class="bg-white p-2.5 rounded-lg border border-slate-200/80 shadow-2xs">
+                  <span class="text-slate-400 text-[10px] block font-semibold uppercase">Primary Vehicle & Driver</span>
+                  <div class="font-bold text-slate-900" id="telemetry-primary-veh">MH-15-EG-4412 (Tata 407 Reefer)</div>
+                  <div class="text-slate-600 text-[11px]" id="telemetry-primary-driver">Santosh Shinde (9890123987)</div>
+                </div>
+
+                <div class="bg-white p-2.5 rounded-lg border border-slate-200/80 shadow-2xs">
+                  <span class="text-slate-400 text-[10px] block font-semibold uppercase">GPS Coordinates & Landmark</span>
+                  <div class="font-mono text-slate-800 text-[11px] font-bold" id="telemetry-coords">19.4520° N, 74.1500° E</div>
+                  <div class="text-slate-600 text-[11px]" id="telemetry-landmark">NH-60 Agro Transit Corridor, near Sangamner</div>
+                </div>
+
+                <!-- Backup Vehicle Details Card (Revealed on breakdown) -->
+                <div id="telemetry-backup-card" class="bg-emerald-50/80 p-2.5 rounded-lg border border-emerald-200 hidden">
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="text-emerald-800 text-[10px] font-bold uppercase flex items-center">
+                      <i class="fa-solid fa-truck-medical text-emerald-600 mr-1"></i> Assigned Backup Vehicle
+                    </span>
+                    <span id="telemetry-backup-dist-badge" class="bg-emerald-600 text-white font-extrabold text-[10px] px-1.5 py-0.5 rounded">
+                      15.1 km
+                    </span>
+                  </div>
+                  <div class="font-bold text-emerald-950 text-xs" id="telemetry-backup-veh">MH-17-BC-5520 (Eicher Pro Reefer)</div>
+                  <div class="text-emerald-900 text-[11px]" id="telemetry-backup-driver">Driver: Sunil Patil (9822334455)</div>
+                  <div class="text-emerald-800 text-[10px] mt-1 font-semibold" id="telemetry-backup-depot">Depot: Sangamner Agro Logistic Center</div>
+                  <div class="text-slate-700 text-[10px] mt-1 flex items-center justify-between bg-white/70 p-1.5 rounded">
+                    <span>Rescue ETA:</span>
+                    <strong class="text-emerald-700" id="telemetry-backup-eta-val">~20 minutes</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Footer Quick Info -->
+            <div class="mt-4 pt-3 border-t border-slate-200 text-[11px] text-slate-500">
+              <div class="flex items-center justify-between">
+                <span>Destination:</span>
+                <strong class="text-slate-700" id="telemetry-dest">Pune Central APMC Hub</strong>
+              </div>
+              <div class="flex items-center justify-between mt-1">
+                <span>Perishable Freshness Risk:</span>
+                <strong class="text-emerald-600" id="telemetry-risk">Safe (Under 2 hrs)</strong>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
     </div>
 
     <!-- ==================== TAB 4: AI DEMAND FORECASTING ==================== -->
