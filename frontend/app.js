@@ -32,6 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadProducts();
   loadShipments();
   loadVehicles();
+  loadFarmerDispatches();
   runForecast();
 });
 
@@ -66,7 +67,10 @@ function switchTab(tabId) {
         loadLogisticsTracking(currentTrackingShipmentId);
       }
     }, 120);
-  } else if (tabId === 'buyer' || tabId === 'farmer') {
+  } else if (tabId === 'farmer') {
+    loadProducts();
+    loadFarmerDispatches();
+  } else if (tabId === 'buyer') {
     loadProducts();
   }
 }
@@ -573,7 +577,10 @@ function populateGpsShipmentDropdown(shipments) {
   shipments.forEach(s => {
     const opt = document.createElement('option');
     opt.value = s.id;
-    opt.textContent = `${s.tracking_no} - ${s.cargo_description} (${s.pickup_location} ➔ ${s.delivery_location})`;
+    const originCity = (s.pickup_location || '').split(',')[0].replace('Farmer Farm', '').trim() || 'Origin';
+    const destCity = (s.delivery_location || '').split(',')[0].trim() || 'Destination';
+    const farmerLabel = s.farmer_name ? ` [${s.farmer_name}]` : '';
+    opt.textContent = `${s.tracking_no}${farmerLabel} - ${s.cargo_description} (${originCity} ➔ ${destCity})`;
     select.appendChild(opt);
   });
 
@@ -921,6 +928,89 @@ async function resolveVehicleBreakdown() {
   } finally {
     if (btn) btn.disabled = false;
   }
+}
+
+async function loadFarmerDispatches() {
+  const container = document.getElementById('farmer-dispatches-container');
+  if (!container) return;
+
+  try {
+    const res = await fetch('/api/shipments');
+    if (!res.ok) return;
+    const shipments = await res.json();
+    renderFarmerDispatches(shipments);
+  } catch (err) {
+    console.error("Error loading farmer dispatches:", err);
+  }
+}
+
+function renderFarmerDispatches(shipments) {
+  const container = document.getElementById('farmer-dispatches-container');
+  if (!container) return;
+
+  if (shipments.length === 0) {
+    container.innerHTML = `<div class="col-span-full text-center py-8 text-slate-400 text-xs">No active dispatches right now. When an order is placed, your produce shipment and live GPS appear here automatically.</div>`;
+    return;
+  }
+
+  container.innerHTML = shipments.map(s => {
+    const isBreakdown = s.breakdown_status === 'BREAKDOWN';
+    const isDelivered = s.status === 'Delivered';
+    const farmerTitle = s.farmer_name ? `Farmer: ${s.farmer_name}` : 'Registered Producer';
+
+    return `
+      <div class="border ${isBreakdown ? 'border-rose-300 bg-rose-50/40 shadow-rose-100' : 'border-slate-200 bg-white'} rounded-xl p-4 shadow-sm hover:shadow transition flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="font-bold text-slate-900 text-xs">${s.tracking_no}</span>
+            <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
+              isBreakdown ? 'bg-rose-600 text-white animate-pulse' : (isDelivered ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800')
+            }">
+              ${isBreakdown ? '🚨 BREAKDOWN ACTIVE' : s.status}
+            </span>
+          </div>
+
+          <div class="font-bold text-slate-800 text-xs mb-1">
+            ${s.cargo_description} (${s.weight_kg} kg)
+          </div>
+          <div class="text-[11px] text-emerald-700 font-semibold mb-2">
+            <i class="fa-solid fa-user-tag mr-1"></i>${farmerTitle}
+          </div>
+
+          <div class="space-y-1 text-[11px] text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100 mb-3">
+            <div><span class="text-slate-400">Pickup:</span> <strong>${s.pickup_location}</strong></div>
+            <div><span class="text-slate-400">Delivery:</span> <strong>${s.delivery_location}</strong></div>
+            <div><span class="text-slate-400">Vehicle:</span> <strong>${s.vehicle_no || 'Assigned Van'}</strong> (${s.driver_name || 'Driver'})</div>
+            <div><span class="text-slate-400">ETA:</span> <strong class="text-slate-800">${s.eta_timestamp || 'In Transit'}</strong></div>
+          </div>
+
+          ${isBreakdown ? `
+            <div class="bg-rose-100 border border-rose-300 text-rose-900 p-2.5 rounded-lg text-[10px] mb-3">
+              <div class="font-bold flex items-center">
+                <i class="fa-solid fa-triangle-exclamation mr-1 text-rose-600"></i> Breakdown Detected on Transit Corridor
+              </div>
+              <div class="mt-0.5">Emergency backup vehicle <strong>${s.backup_vehicle_no || 'Dispatched'}</strong> is en route (${s.backup_distance_km || 15} km away, ~${s.backup_eta_mins || 20} mins).</div>
+            </div>
+          ` : ''}
+        </div>
+
+        <div class="pt-2 border-t border-slate-100 flex items-center justify-between">
+          <span class="text-[11px] font-bold text-emerald-700">Freight: ₹${s.transport_cost}</span>
+          <button onclick="viewShipmentOnGpsMap(${s.id})" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-[11px] px-3 py-1.5 rounded-lg shadow-sm transition flex items-center space-x-1">
+            <i class="fa-solid fa-map-location-dot"></i>
+            <span>Track on Live GPS Map</span>
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function viewShipmentOnGpsMap(shipmentId) {
+  switchTab('logistics');
+  setTimeout(() => {
+    focusGpsShipment(shipmentId);
+  }, 200);
 }
 
 // ==================== MODULE 4: AI DEMAND FORECASTING ====================

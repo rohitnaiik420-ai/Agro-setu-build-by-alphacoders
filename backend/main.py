@@ -17,7 +17,7 @@ if str(BACKEND_DIR) not in sys.path:
 
 from database import get_db_connection, init_db
 from forecasting_engine import calculate_forecast
-from route_optimizer import solve_route_optimization, DEFAULT_WAYPOINTS, haversine_distance, CITY_COORDINATES
+from route_optimizer import solve_route_optimization, DEFAULT_WAYPOINTS, haversine_distance, CITY_COORDINATES, get_coordinates_for_city
 from seed_data import seed_all
 
 # Directory setup
@@ -279,25 +279,45 @@ def create_order(payload: OrderCreateSchema):
     order_id = c.lastrowid
 
     # Automatically provision logistics shipment for this order!
-    # e.g., Farmer Location -> Collection Center -> Buyer Delivery City
-    vehicle = c.execute("SELECT * FROM vehicles WHERE status = 'Available' LIMIT 1").fetchone()
-    if not vehicle:
-        vehicle = c.execute("SELECT * FROM vehicles LIMIT 1").fetchone()
+    # Works for ALL farmers anywhere across India
+    p_lat, p_lon = get_coordinates_for_city(product["location"])
+    d_lat, d_lon = get_coordinates_for_city(payload.delivery_city)
+    est_distance = max(25.0, round(haversine_distance(p_lat, p_lon, d_lat, d_lon), 1))
 
-    # Calculate distance heuristic
-    est_distance = round(haversine_distance(19.9975, 73.7898, 18.5204, 73.8567), 1) # Nashik to Pune ~210km baseline
-    rate = vehicle["per_km_rate"] if vehicle else 20.0
+    # Select closest vehicle to the farmer's produce origin
+    candidates = c.execute("SELECT * FROM vehicles WHERE status = 'Available'").fetchall()
+    if not candidates:
+        candidates = c.execute("SELECT * FROM vehicles").fetchall()
+
+    vehicle = None
+    min_veh_dist = float("inf")
+    for v in candidates:
+        v_dict = dict(v)
+        v_lat = v_dict.get("lat") or p_lat
+        v_lon = v_dict.get("lon") or p_lon
+        dist = haversine_distance(p_lat, p_lon, v_lat, v_lon)
+        if dist < min_veh_dist:
+            min_veh_dist = dist
+            vehicle = v_dict
+
+    rate = vehicle["per_km_rate"] if vehicle else 22.0
     cost = round(est_distance * rate, 0)
-    eta = (datetime.datetime.now() + datetime.timedelta(hours=4.5)).strftime("%I:%M %p Tomorrow")
+    est_hours = max(1.5, round(est_distance / 45.0, 1))
+    eta = (datetime.datetime.now() + datetime.timedelta(hours=est_hours)).strftime("%I:%M %p Tomorrow")
 
-    tracking_num = f"SHIP-MAHA-{uuid.uuid4().hex[:5].upper()}"
+    cur_lat = round(p_lat * 0.7 + d_lat * 0.3, 4)
+    cur_lon = round(p_lon * 0.7 + d_lon * 0.3, 4)
+    cur_desc = f"Transit Corridor en route to {payload.delivery_city}"
+
+    tracking_num = f"SHIP-IND-{uuid.uuid4().hex[:6].upper()}"
     c.execute("""
     INSERT INTO shipments (
         tracking_no, order_id, cargo_description, weight_kg,
         pickup_location, collection_center, delivery_location,
         vehicle_id, vehicle_no, driver_name, driver_phone,
-        status, distance_km, estimated_hours, transport_cost, eta_timestamp
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Scheduled', ?, 4.5, ?, ?);
+        status, distance_km, estimated_hours, transport_cost, eta_timestamp,
+        current_lat, current_lon, current_location_desc
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Scheduled', ?, ?, ?, ?, ?, ?, ?);
     """, (
         tracking_num, order_id, f"{payload.quantity_kg} kg {product['crop_name']}",
         payload.quantity_kg, f"Farmer Farm, {product['location']}",
@@ -307,7 +327,8 @@ def create_order(payload: OrderCreateSchema):
         vehicle["vehicle_no"] if vehicle else "MH-12-PQ-8901",
         vehicle["driver_name"] if vehicle else "Santosh Shinde",
         vehicle["driver_phone"] if vehicle else "9890123987",
-        est_distance, cost, eta
+        est_distance, est_hours, cost, eta,
+        cur_lat, cur_lon, cur_desc
     ))
 
     conn.commit()
@@ -334,7 +355,12 @@ def list_vehicles():
 @app.get("/api/shipments")
 def list_shipments():
     conn = get_db_connection()
-    rows = conn.cursor().execute("SELECT * FROM shipments ORDER BY id DESC").fetchall()
+    rows = conn.cursor().execute("""
+    SELECT s.*, o.farmer_name, o.product_name, o.buyer_name, o.buyer_phone, o.delivery_city
+    FROM shipments s
+    LEFT JOIN orders o ON s.order_id = o.id
+    ORDER BY s.id DESC
+    """).fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
@@ -346,35 +372,44 @@ def create_shipment(payload: ShipmentCreateSchema):
     vehicle = None
     if payload.vehicle_id:
         vehicle = c.execute("SELECT * FROM vehicles WHERE id = ?", (payload.vehicle_id,)).fetchone()
-    if not vehicle:
-        vehicle = c.execute("SELECT * FROM vehicles WHERE status = 'Available' LIMIT 1").fetchone()
-    if not vehicle:
-        vehicle = c.execute("SELECT * FROM vehicles LIMIT 1").fetchone()
 
-    # Estimate distance based on keywords or baseline
-    dist_km = 185.0
-    if "nashik" in payload.pickup_location.lower() and "pune" in payload.delivery_location.lower():
-        dist_km = 212.0
-    elif "sangamner" in payload.pickup_location.lower():
-        dist_km = 148.0
-    elif "ahmednagar" in payload.pickup_location.lower():
-        dist_km = 125.0
-    elif "satara" in payload.pickup_location.lower():
-        dist_km = 112.0
+    p_lat, p_lon = get_coordinates_for_city(payload.pickup_location)
+    d_lat, d_lon = get_coordinates_for_city(payload.delivery_location)
+    dist_km = max(25.0, round(haversine_distance(p_lat, p_lon, d_lat, d_lon), 1))
+
+    if not vehicle:
+        # Find closest available vehicle to pickup location anywhere in India
+        candidates = c.execute("SELECT * FROM vehicles WHERE status = 'Available'").fetchall()
+        if not candidates:
+            candidates = c.execute("SELECT * FROM vehicles").fetchall()
+        min_v_dist = float("inf")
+        for v in candidates:
+            v_dict = dict(v)
+            v_lat = v_dict.get("lat") or p_lat
+            v_lon = v_dict.get("lon") or p_lon
+            dist = haversine_distance(p_lat, p_lon, v_lat, v_lon)
+            if dist < min_v_dist:
+                min_v_dist = dist
+                vehicle = v_dict
 
     rate = vehicle["per_km_rate"] if vehicle else 22.0
     transport_cost = round(dist_km * rate, 0)
-    est_hours = round(dist_km / 45.0, 1)
+    est_hours = max(1.5, round(dist_km / 45.0, 1))
     eta = (datetime.datetime.now() + datetime.timedelta(hours=est_hours)).strftime("%I:%M %p Today")
-    tracking_no = f"SHIP-MAHA-{uuid.uuid4().hex[:5].upper()}"
+    tracking_no = f"SHIP-IND-{uuid.uuid4().hex[:6].upper()}"
+
+    cur_lat = round(p_lat * 0.7 + d_lat * 0.3, 4)
+    cur_lon = round(p_lon * 0.7 + d_lon * 0.3, 4)
+    cur_desc = f"Transit Corridor en route to {payload.delivery_location.split(',')[0]}"
 
     c.execute("""
     INSERT INTO shipments (
         tracking_no, order_id, cargo_description, weight_kg,
         pickup_location, collection_center, delivery_location,
         vehicle_id, vehicle_no, driver_name, driver_phone,
-        status, distance_km, estimated_hours, transport_cost, eta_timestamp
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Scheduled', ?, ?, ?, ?);
+        status, distance_km, estimated_hours, transport_cost, eta_timestamp,
+        current_lat, current_lon, current_location_desc
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Scheduled', ?, ?, ?, ?, ?, ?, ?);
     """, (
         tracking_no, payload.order_id, payload.cargo_description, payload.weight_kg,
         payload.pickup_location, payload.collection_center, payload.delivery_location,
@@ -382,11 +417,12 @@ def create_shipment(payload: ShipmentCreateSchema):
         vehicle["vehicle_no"] if vehicle else "MH-15-EG-4412",
         vehicle["driver_name"] if vehicle else "Santosh Shinde",
         vehicle["driver_phone"] if vehicle else "9890123987",
-        dist_km, est_hours, transport_cost, eta
+        dist_km, est_hours, transport_cost, eta,
+        cur_lat, cur_lon, cur_desc
     ))
 
     # Mark vehicle as On Route
-    if vehicle:
+    if vehicle and "id" in vehicle:
         c.execute("UPDATE vehicles SET status = 'On Route' WHERE id = ?", (vehicle["id"],))
 
     conn.commit()
@@ -419,7 +455,7 @@ def update_shipment_status(shipment_id: int, payload: ShipmentStatusUpdateSchema
 def get_shipment_gps_tracking(shipment_id: str):
     """
     Returns live GPS telemetry, breakdown alert status, and backup vehicle details
-    for any active shipment (matching Problem Statement 26033).
+    for ANY active farmer shipment across India (matching Problem Statement 26033).
     """
     conn = get_db_connection()
     c = conn.cursor()
@@ -435,32 +471,30 @@ def get_shipment_gps_tracking(shipment_id: str):
 
     s_dict = dict(shipment)
 
-    # Resolve destination lat/lon
-    dest_name = (s_dict.get("delivery_location") or "").lower()
-    dest_lat, dest_lon = 18.4900, 73.8650  # Default Pune Central Hub
-    for city_k, coords in CITY_COORDINATES.items():
-        if city_k in dest_name:
-            dest_lat, dest_lon = coords
-            break
+    # Dynamic pan-India coordinates resolution for ANY farmer & delivery city
+    pickup_lat, pickup_lon = get_coordinates_for_city(s_dict.get("pickup_location") or "Nashik")
+    dest_lat, dest_lon = get_coordinates_for_city(s_dict.get("delivery_location") or "Pune")
 
-    # Resolve pickup lat/lon
-    pickup_name = (s_dict.get("pickup_location") or "").lower()
-    pickup_lat, pickup_lon = 19.9975, 73.7898  # Default Nashik Hub
-    for city_k, coords in CITY_COORDINATES.items():
-        if city_k in pickup_name:
-            pickup_lat, pickup_lon = coords
-            break
+    stored_lat = s_dict.get("current_lat")
+    stored_lon = s_dict.get("current_lon")
 
-    cur_lat = s_dict.get("current_lat") or 19.4520
-    cur_lon = s_dict.get("current_lon") or 74.1500
-    cur_desc = s_dict.get("current_location_desc") or "NH-60 Agro Transit Corridor, near Sangamner"
+    # If stored is default/missing or outside the transit corridor, calculate dynamic transit position
+    if not stored_lat or stored_lat == 0 or (abs(stored_lat - pickup_lat) > 4.5 and abs(stored_lat - dest_lat) > 4.5):
+        cur_lat = round(pickup_lat * 0.6 + dest_lat * 0.4, 4)
+        cur_lon = round(pickup_lon * 0.6 + dest_lon * 0.4, 4)
+        dest_city_label = s_dict.get('delivery_location', 'Market Hub').split(',')[0].strip()
+        cur_desc = f"Transit Corridor en route to {dest_city_label}"
+    else:
+        cur_lat = stored_lat
+        cur_lon = stored_lon
+        cur_desc = s_dict.get("current_location_desc") or "Transit Corridor"
 
     # Backup vehicle lookup if breakdown active
     backup_veh = None
     if s_dict.get("breakdown_status") == "BREAKDOWN" and s_dict.get("backup_vehicle_no"):
         b_veh = c.execute("SELECT * FROM vehicles WHERE vehicle_no = ?", (s_dict["backup_vehicle_no"],)).fetchone()
-        b_lat = b_veh["lat"] if b_veh and "lat" in b_veh.keys() and b_veh["lat"] else 19.5761
-        b_lon = b_veh["lon"] if b_veh and "lon" in b_veh.keys() and b_veh["lon"] else 74.2070
+        b_lat = b_veh["lat"] if b_veh and "lat" in b_veh.keys() and b_veh["lat"] else (cur_lat + 0.1)
+        b_lon = b_veh["lon"] if b_veh and "lon" in b_veh.keys() and b_veh["lon"] else (cur_lon + 0.1)
         backup_veh = {
             "id": s_dict.get("backup_vehicle_id"),
             "vehicle_no": s_dict.get("backup_vehicle_no"),
@@ -508,13 +542,13 @@ def get_shipment_gps_tracking(shipment_id: str):
 @app.post("/api/logistics/breakdown/{shipment_id}")
 def trigger_vehicle_breakdown(shipment_id: str, payload: Optional[BreakdownTriggerSchema] = None):
     """
-    Simulates / triggers a vehicle breakdown along transit.
-    1. Sets breakdown status and logs GPS location.
-    2. Searches fleet for nearest available backup vehicle.
+    Simulates / triggers a vehicle breakdown along transit for ANY farmer in India.
+    1. Sets breakdown status and logs GPS location along the farmer's corridor.
+    2. Searches fleet for nearest available backup vehicle across regional depots.
     3. Calculates real distance via Haversine formula and estimated arrival time.
     4. Dispatches the backup vehicle and updates telemetry.
     """
-    reason = payload.reason if payload and payload.reason else "Engine Overheating on NH-60 Transit Corridor"
+    reason = payload.reason if payload and payload.reason else "Mechanical Engine Failure along Transit Corridor"
     conn = get_db_connection()
     c = conn.cursor()
 
@@ -528,17 +562,26 @@ def trigger_vehicle_breakdown(shipment_id: str, payload: Optional[BreakdownTrigg
         raise HTTPException(status_code=404, detail="Shipment not found")
 
     s_dict = dict(shipment)
-    b_lat = (payload.breakdown_lat if (payload and payload.breakdown_lat is not None)
-             else (s_dict.get("current_lat") or 19.4520))
-    b_lon = (payload.breakdown_lon if (payload and payload.breakdown_lon is not None)
-             else (s_dict.get("current_lon") or 74.1500))
+    pickup_lat, pickup_lon = get_coordinates_for_city(s_dict.get("pickup_location") or "Nashik")
+    dest_lat, dest_lon = get_coordinates_for_city(s_dict.get("delivery_location") or "Pune")
+
+    if payload and payload.breakdown_lat is not None and payload.breakdown_lat != 0:
+        b_lat = payload.breakdown_lat
+        b_lon = payload.breakdown_lon or round(pickup_lon * 0.6 + dest_lon * 0.4, 4)
+    elif s_dict.get("current_lat") and s_dict.get("current_lat") != 0 and not (abs(s_dict.get("current_lat") - pickup_lat) > 4.5 and abs(s_dict.get("current_lat") - dest_lat) > 4.5):
+        b_lat = s_dict.get("current_lat")
+        b_lon = s_dict.get("current_lon")
+    else:
+        b_lat = round(pickup_lat * 0.6 + dest_lat * 0.4, 4)
+        b_lon = round(pickup_lon * 0.6 + dest_lon * 0.4, 4)
+
     timestamp = datetime.datetime.now().strftime("%I:%M %p, %d %b %Y")
 
     curr_veh_id = s_dict.get("vehicle_id")
     if curr_veh_id:
         c.execute("UPDATE vehicles SET status = 'Under Repair (Breakdown)' WHERE id = ?", (curr_veh_id,))
 
-    # Find the nearest available backup vehicle
+    # Find the nearest available backup vehicle anywhere in the nation
     candidates = c.execute("SELECT * FROM vehicles WHERE status = 'Available' AND id != ?", (curr_veh_id or 0,)).fetchall()
     if not candidates:
         candidates = c.execute("SELECT * FROM vehicles WHERE id != ?", (curr_veh_id or 0,)).fetchall()
@@ -597,7 +640,7 @@ def trigger_vehicle_breakdown(shipment_id: str, payload: Optional[BreakdownTrigg
         "breakdown_location": {
             "lat": b_lat,
             "lon": b_lon,
-            "description": s_dict.get("current_location_desc") or "NH-60 Agro Transit Corridor (near Sangamner)"
+            "description": s_dict.get("current_location_desc") or f"Transit Corridor ({b_lat:.2f}, {b_lon:.2f})"
         },
         "reason": reason,
         "timestamp": timestamp,

@@ -184,18 +184,32 @@ def init_db():
         if col_name not in s_cols:
             cursor.execute(f"ALTER TABLE shipments ADD COLUMN {col_name} {col_def};")
 
-    # Update known vehicle coordinates for accurate GPS distances
-    vehicle_coords = [
-        ("MH-15-EG-4412", 19.9975, 73.7898), # Nashik Hub
-        ("MH-12-PQ-8901", 19.4520, 74.1500), # En route NH-60
-        ("MH-17-BC-5520", 19.5761, 74.2070), # Sangamner Center (Nearest backup ~15 km!)
-        ("MH-16-AY-7734", 19.0948, 74.7480), # Ahmednagar Hub (~68 km)
-        ("MH-11-DF-2299", 17.6805, 74.0183), # Satara Depot (~195 km)
-        ("DL-1L-AA-3344", 28.7126, 77.1740), # Delhi Azadpur
-        ("MP-09-GF-8812", 22.7196, 75.8577)  # Indore Krishi Mandi
+    # Pan-India Fleet Vehicles & Coordinates for ALL farmers across India
+    national_vehicles = [
+        ("MH-15-EG-4412", "Refrigerated Cold Van (2.5T)", 2500, 24.0, "Gajanan Jadhav", "9822456781", "Nashik Hub, Maharashtra", 19.9975, 73.7898),
+        ("MH-12-PQ-8901", "Mini-Truck Tata 407 (3.5T)", 3500, 18.5, "Santosh Shinde", "9890123987", "Pune Market Yard, Maharashtra", 18.5204, 73.8567),
+        ("MH-17-BC-5520", "3-Wheeler Heavy Tempo (1.2T)", 1200, 14.0, "Pravin More", "9765432109", "Sangamner Center, Maharashtra", 19.5761, 74.2070),
+        ("MH-16-AY-7734", "10T Eicher Logistics Lorry", 10000, 32.0, "Dnyaneshwar Gaikwad", "9821876543", "Ahmednagar Hub, Maharashtra", 19.0948, 74.7480),
+        ("MH-11-DF-2299", "Insulated Cold Container (4T)", 4000, 26.0, "Sunil Pawar", "9834567890", "Satara Depot, Maharashtra", 17.6805, 74.0183),
+        ("PB-10-CZ-9911", "Tata 407 Reefer Van (3.5T)", 3500, 22.0, "Harbhajan Gill", "9814123456", "Ludhiana Granary Depot, Punjab", 30.9010, 75.8573),
+        ("HR-05-MK-3420", "Insulated Cold Van (4T)", 4000, 24.0, "Rajender Malik", "9896123456", "Karnal Agro Center, Haryana", 29.6857, 76.9905),
+        ("DL-1L-AA-3344", "16T Heavy Multi-Axle Truck", 16000, 38.0, "Harpreet Singh", "9811223344", "Delhi Azadpur Terminal, Delhi", 28.7126, 77.1740),
+        ("MP-09-GF-8812", "Eicher Pro 6-Wheeler (7.5T)", 7500, 28.0, "Mukesh Yadav", "9826112233", "Indore Krishi Mandi, MP", 22.7196, 75.8577),
+        ("MP-04-TR-6231", "Tata 407 Cold Carrier (3T)", 3000, 21.0, "Ghanshyam Gurjar", "9826123456", "Bhopal Karond Mandi, MP", 23.2599, 77.4126),
+        ("GJ-06-AX-4512", "Eicher Pro Reefer (4.5T)", 4500, 25.0, "Pravinbhai Shah", "9825123456", "Vadodara / Anand Hub, Gujarat", 22.3072, 73.1812),
+        ("KA-04-BL-8877", "Ashok Leyland Reefer (5T)", 5000, 26.0, "Basavaraj Patil", "9845123456", "Bengaluru Yeshwanthpur APMC, Karnataka", 12.9716, 77.5946),
+        ("AP-07-TJ-5544", "Tata 407 Spices Express (3.5T)", 3500, 22.0, "Raghava Rao", "9848123456", "Guntur Spices Yard, Andhra Pradesh", 16.3067, 80.4365)
     ]
-    for v_no, v_lat, v_lon in vehicle_coords:
-        cursor.execute("UPDATE vehicles SET lat = ?, lon = ? WHERE vehicle_no = ?;", (v_lat, v_lon, v_no))
+    for v in national_vehicles:
+        v_no, v_type, v_cap, v_rate, v_drv, v_ph, v_loc, v_lat, v_lon = v
+        existing = cursor.execute("SELECT id FROM vehicles WHERE vehicle_no = ?", (v_no,)).fetchone()
+        if existing:
+            cursor.execute("UPDATE vehicles SET lat = ?, lon = ?, current_location = ? WHERE vehicle_no = ?;", (v_lat, v_lon, v_loc, v_no))
+        else:
+            cursor.execute("""
+            INSERT INTO vehicles (vehicle_no, vehicle_type, capacity_kg, per_km_rate, driver_name, driver_phone, current_location, status, lat, lon)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'Available', ?, ?);
+            """, (v_no, v_type, v_cap, v_rate, v_drv, v_ph, v_loc, v_lat, v_lon))
 
     conn.commit()
     conn.close()
