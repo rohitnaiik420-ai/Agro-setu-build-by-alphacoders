@@ -1,0 +1,13 @@
+.git
+.github
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.log
+.vscode
+.idea
+*.bat
+MY_ORIGINAL_EXAMPLES/
+SCENARIO_5_CITIES_NASHIK_PUNE_SANGAMNER_AHMEDNAGAR_SATARA/
+test_scenarios_and_examples/

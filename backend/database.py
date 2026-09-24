@@ -1,15 +1,52 @@
 import sqlite3
 import os
 import json
+import shutil
 from pathlib import Path
 from datetime import datetime
 
-DB_DIR = Path(__file__).resolve().parent.parent / "data"
-DB_DIR.mkdir(parents=True, exist_ok=True)
-DB_PATH = DB_DIR / "agri_system.db"
+# Serverless environment detection (Vercel, AWS Lambda, etc.)
+IS_SERVERLESS = bool(os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"))
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_DATA_DIR = REPO_ROOT / "data"
+DEFAULT_DB_PATH = DEFAULT_DATA_DIR / "agri_system.db"
+
+# Allow explicit override via DB_PATH or DATABASE_PATH
+env_db_path = os.environ.get("DB_PATH") or os.environ.get("DATABASE_PATH")
+
+if env_db_path:
+    DB_PATH = Path(env_db_path)
+    DB_DIR = DB_PATH.parent
+elif IS_SERVERLESS:
+    # On Vercel serverless functions, the root filesystem is read-only.
+    # /tmp is the only writable directory.
+    DB_DIR = Path("/tmp") / "agrosetu_data"
+    DB_PATH = DB_DIR / "agri_system.db"
+else:
+    DB_DIR = DEFAULT_DATA_DIR
+    DB_PATH = DEFAULT_DB_PATH
+
+try:
+    DB_DIR.mkdir(parents=True, exist_ok=True)
+except OSError:
+    pass
+
+def ensure_database_ready():
+    """Ensures database file exists and is accessible. Copies seed DB to /tmp if in serverless."""
+    if IS_SERVERLESS and not DB_PATH.exists():
+        try:
+            DB_DIR.mkdir(parents=True, exist_ok=True)
+            if DEFAULT_DB_PATH.exists():
+                shutil.copy2(str(DEFAULT_DB_PATH), str(DB_PATH))
+        except Exception as e:
+            print(f"Warning copying seed database to /tmp: {e}")
+
+ensure_database_ready()
 
 def get_db_connection():
     """Returns a SQLite connection with row factory set to dict-like rows."""
+    ensure_database_ready()
     conn = sqlite3.connect(str(DB_PATH), check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn

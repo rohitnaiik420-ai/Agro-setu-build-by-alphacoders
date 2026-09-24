@@ -1,6 +1,9 @@
 import datetime
 import random
-from database import get_db_connection, init_db
+try:
+    from backend.database import get_db_connection, init_db
+except ImportError:
+    from database import get_db_connection, init_db
 
 def seed_all():
     init_db()

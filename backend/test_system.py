@@ -9,10 +9,14 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 BACKEND_DIR = ROOT_DIR / "backend"
 DATA_DIR = ROOT_DIR / "data"
 FRONTEND_DIR = ROOT_DIR / "frontend"
-DB_PATH = DATA_DIR / "agri_system.db"
-
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
+
+try:
+    from backend.database import DB_PATH, get_db_connection
+except ImportError:
+    from database import DB_PATH, get_db_connection
+
 
 def run_diagnostics():
     print("=" * 75)

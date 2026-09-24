@@ -4,7 +4,7 @@ import datetime
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 
-from fastapi import FastAPI, HTTPException, Query, status
+from fastapi import FastAPI, HTTPException, Query, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
@@ -15,15 +15,24 @@ BACKEND_DIR = Path(__file__).resolve().parent
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
-from database import get_db_connection, init_db
-from forecasting_engine import calculate_forecast
-from route_optimizer import solve_route_optimization, DEFAULT_WAYPOINTS, haversine_distance, CITY_COORDINATES, get_coordinates_for_city
-from seed_data import seed_all
+try:
+    from backend.database import get_db_connection, init_db, DB_PATH
+    from backend.forecasting_engine import calculate_forecast
+    from backend.route_optimizer import solve_route_optimization, DEFAULT_WAYPOINTS, haversine_distance, CITY_COORDINATES, get_coordinates_for_city
+    from backend.seed_data import seed_all
+except ImportError:
+    from database import get_db_connection, init_db, DB_PATH
+    from forecasting_engine import calculate_forecast
+    from route_optimizer import solve_route_optimization, DEFAULT_WAYPOINTS, haversine_distance, CITY_COORDINATES, get_coordinates_for_city
+    from seed_data import seed_all
 
 # Directory setup
 BASE_DIR = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = BASE_DIR / "frontend"
-FRONTEND_DIR.mkdir(parents=True, exist_ok=True)
+try:
+    FRONTEND_DIR.mkdir(parents=True, exist_ok=True)
+except OSError:
+    pass
 
 app = FastAPI(
     title="Agro-Logistics & Marketplace Platform (Problem Statement 26033)",
@@ -31,11 +40,19 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Enable CORS for local dev flexibility
+# Enable CORS (support environment variable ALLOWED_ORIGINS if configured)
+allowed_origins_env = os.environ.get("ALLOWED_ORIGINS")
+if allowed_origins_env:
+    allowed_origins = [o.strip() for o in allowed_origins_env.split(",") if o.strip()]
+    allow_credentials = True
+else:
+    allowed_origins = ["*"]
+    allow_credentials = False
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=allowed_origins,
+    allow_credentials=allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -44,6 +61,15 @@ app.add_middleware(
 @app.on_event("startup")
 def startup_event():
     init_db()
+    try:
+        conn = get_db_connection()
+        count = conn.cursor().execute("SELECT COUNT(*) FROM farmers").fetchone()[0]
+        conn.close()
+        if count == 0:
+            seed_all()
+    except Exception as e:
+        print(f"Startup DB check note: {e}")
+
 
 # ==================== PYDANTIC SCHEMAS ====================
 
@@ -770,8 +796,20 @@ def run_route_optimization(payload: Optional[RouteOptimizeRequest] = None):
     return result
 
 @app.get("/api/network-info")
-def get_network_info():
-    """Returns the local IP address for smartphone/tablet access on Wi-Fi."""
+def get_network_info(request: Request):
+    """Returns network / host info for smartphone/tablet access."""
+    forwarded_host = request.headers.get("x-forwarded-host") or request.headers.get("host")
+    forwarded_proto = request.headers.get("x-forwarded-proto", "https" if forwarded_host and "vercel.app" in forwarded_host else "http")
+
+    if forwarded_host and "127.0.0.1" not in forwarded_host and "localhost" not in forwarded_host:
+        public_url = f"{forwarded_proto}://{forwarded_host}"
+        return {
+            "local_ip": forwarded_host,
+            "port": 443 if forwarded_proto == "https" else 80,
+            "local_url": public_url,
+            "mobile_url": public_url
+        }
+
     import socket
     local_ip = "127.0.0.1"
     try:
@@ -795,10 +833,16 @@ def get_network_info():
 @app.get("/api/corridors")
 def get_regional_corridors():
     """Returns regional pre-configured corridors across India."""
-    from route_optimizer import (
-        CORRIDOR_MAHARASHTRA, CORRIDOR_NORTH_INDIA, CORRIDOR_CENTRAL_INDIA,
-        CORRIDOR_GUJARAT, CORRIDOR_SOUTH_INDIA, REGIONAL_HUBS, CITY_COORDINATES
-    )
+    try:
+        from backend.route_optimizer import (
+            CORRIDOR_MAHARASHTRA, CORRIDOR_NORTH_INDIA, CORRIDOR_CENTRAL_INDIA,
+            CORRIDOR_GUJARAT, CORRIDOR_SOUTH_INDIA, REGIONAL_HUBS, CITY_COORDINATES
+        )
+    except ImportError:
+        from route_optimizer import (
+            CORRIDOR_MAHARASHTRA, CORRIDOR_NORTH_INDIA, CORRIDOR_CENTRAL_INDIA,
+            CORRIDOR_GUJARAT, CORRIDOR_SOUTH_INDIA, REGIONAL_HUBS, CITY_COORDINATES
+        )
     return {
         "corridors": {
             "maharashtra": {

@@ -1,0 +1,15 @@
+[project]
+name = "agrosetu"
+version = "1.0.0"
+description = "AgroSetu AI - Smart Farmer-Buyer Marketplace & Logistics Platform"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "fastapi>=0.110.0",
+    "uvicorn>=0.28.0",
+    "pydantic>=2.0.0",
+    "aiofiles>=23.2.0",
+]
+
+[tool.vercel]
+entrypoint = "backend.main:app"
