@@ -2,6 +2,7 @@ import os
 import sys
 import sqlite3
 import json
+import datetime
 from pathlib import Path
 
 # Paths
@@ -47,7 +48,10 @@ def run_diagnostics():
             tables = [r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()]
             print(f"  [+] Detected Tables in Database: {len(tables)} tables")
 
-            expected_tables = ["farmers", "products", "orders", "vehicles", "shipments", "demand_history", "route_waypoints"]
+            expected_tables = [
+                "farmers", "products", "orders", "vehicles", "shipments", "demand_history", "route_waypoints",
+                "iot_sensors", "sensor_readings", "food_shipments", "food_safety_alerts", "shelf_life_predictions", "food_category_thresholds"
+            ]
             missing = [t for t in expected_tables if t not in tables]
             if missing:
                 results["database"]["status"] = "WARNING"
@@ -85,6 +89,7 @@ def run_diagnostics():
     try:
         from forecasting_engine import calculate_forecast
         from route_optimizer import solve_route_optimization
+        from shelf_life_engine import calculate_dynamic_shelf_life
         from main import app
 
         # Test Module 3: Forecasting
@@ -97,12 +102,18 @@ def run_diagnostics():
         print(f"  [+] AI Route Optimizer: Distance Saved = {rt['summary']['distance_saved_km']} km, Cost Saved = Rs. {rt['summary']['cost_saved_inr']}")
         assert rt['summary']['distance_saved_km'] > 500, "Route optimization error"
 
+        # Test Module 6: IoT & Shelf Life Engine
+        recent_harvest = (datetime.date.today() - datetime.timedelta(days=2)).isoformat()
+        sl = calculate_dynamic_shelf_life("Organic Hybrid Tomato", recent_harvest, "Grade A+ Export")
+        print(f"  [+] AI Shelf-Life Engine: Remaining = {sl['estimated_remaining_days']} days ({sl['estimated_remaining_hours']} hrs), Risk Score = {sl['quality_risk_score']}% ({sl['risk_category']})")
+        assert sl['estimated_remaining_days'] > 0, "Shelf life calculation error"
+
         # Test FastAPI routes count
         routes_count = len(app.routes)
         print(f"  [+] FastAPI Application: {routes_count} active API & static routes registered")
 
         results["backend"]["status"] = "HEALTHY & FULLY WORKING"
-        results["backend"]["details"].append(f"AI Forecasting, Route Optimizer, and {routes_count} API routes verified.")
+        results["backend"]["details"].append(f"AI Forecasting, Route Optimizer, IoT Cold Chain Engine, and {routes_count} API routes verified.")
     except Exception as e:
         results["backend"]["status"] = "ERROR"
         results["backend"]["details"].append(str(e))

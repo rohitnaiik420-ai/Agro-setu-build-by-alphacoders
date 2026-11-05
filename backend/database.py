@@ -248,9 +248,171 @@ def init_db():
             VALUES (?, ?, ?, ?, ?, ?, ?, 'Available', ?, ?);
             """, (v_no, v_type, v_cap, v_rate, v_drv, v_ph, v_loc, v_lat, v_lon))
 
+    # ==================== REAL-TIME IOT & FOOD SAFETY SCHEMA ====================
+
+    # 8. IoT Sensor Hardware Nodes (ESP32 + SHT31 + GPS)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS iot_sensors (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sensor_id TEXT UNIQUE NOT NULL,
+        hardware_type TEXT DEFAULT 'ESP32 + SHT31 + GPS',
+        model TEXT DEFAULT 'ESP32-WROOM-32D',
+        status TEXT DEFAULT 'ONLINE',
+        last_heartbeat TIMESTAMP,
+        battery_pct REAL DEFAULT 98.0,
+        firmware_version TEXT DEFAULT 'v1.4.2-AgroSetu',
+        is_simulator INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    """)
+
+    # 9. Food Category Storage Guidelines & Threshold Limits
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS food_category_thresholds (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        category_name TEXT UNIQUE NOT NULL,
+        temp_min REAL NOT NULL,
+        temp_max REAL NOT NULL,
+        temp_critical REAL NOT NULL,
+        humidity_min REAL NOT NULL,
+        humidity_max REAL NOT NULL,
+        max_disconnect_seconds INTEGER DEFAULT 60,
+        guideline_source TEXT DEFAULT 'ICAR-CIPHET & USDA Handbook 66',
+        storage_notes TEXT
+    );
+    """)
+
+    # Seed standard guidelines if table empty
+    cat_count = cursor.execute("SELECT COUNT(*) FROM food_category_thresholds;").fetchone()[0]
+    if cat_count == 0:
+        default_categories = [
+            ("Fruits", 2.0, 8.0, 15.0, 85.0, 95.0, 60, "ICAR-CIPHET & USDA HB66", "Perishable tree fruits & berries; keep within 2-8°C with high relative humidity to prevent shrivelling."),
+            ("Vegetables", 4.0, 10.0, 18.0, 85.0, 95.0, 60, "National Horticulture Board", "Fresh harvested vegetables; high humidity suppresses wilting, chilling injury below 4°C for solanaceous crops."),
+            ("Dairy Products", 1.0, 4.0, 7.0, 65.0, 80.0, 45, "FSSAI Cold Chain Standards", "Milk, paneer, and curd; strict 1-4°C required. Critical bacterial proliferation begins at > 7°C."),
+            ("Frozen Food", -22.0, -18.0, -12.0, 80.0, 95.0, 45, "Codex Alimentarius Quick Frozen Foods", "Deep frozen fruits, peas, and processed packs; must remain <= -18°C. Thawing threshold is -12°C."),
+            ("Processed Food", 15.0, 22.0, 28.0, 50.0, 70.0, 90, "FSSAI Packaged Foods Regulations", "Aseptic purees, pasteurized juices, and sauces; ambient cool storage; avoids heat-induced packaging bloating.")
+        ]
+        cursor.executemany("""
+        INSERT INTO food_category_thresholds (
+            category_name, temp_min, temp_max, temp_critical,
+            humidity_min, humidity_max, max_disconnect_seconds, guideline_source, storage_notes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+        """, default_categories)
+
+    # 10. Cold Chain Food Shipments
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS food_shipments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        shipment_id TEXT NOT NULL,
+        order_id INTEGER,
+        sensor_id TEXT NOT NULL,
+        food_name TEXT NOT NULL,
+        category TEXT NOT NULL,
+        truck_id TEXT NOT NULL,
+        harvest_date TEXT,
+        initial_quality_grade TEXT DEFAULT 'Grade A',
+        target_temp_min REAL,
+        target_temp_max REAL,
+        target_humidity_min REAL,
+        target_humidity_max REAL,
+        monitoring_status TEXT DEFAULT 'ACTIVE',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    """)
+
+    # 11. Sensor Readings Telemetry
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS sensor_readings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sensor_id TEXT NOT NULL,
+        shipment_id TEXT NOT NULL,
+        truck_id TEXT,
+        temperature REAL NOT NULL,
+        humidity REAL NOT NULL,
+        latitude REAL,
+        longitude REAL,
+        is_simulated INTEGER DEFAULT 0,
+        data_source TEXT DEFAULT 'HARDWARE_ESP32',
+        battery_pct REAL DEFAULT 95.0,
+        signal_rssi INTEGER DEFAULT -65,
+        timestamp TEXT NOT NULL
+    );
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_readings_shipment ON sensor_readings(shipment_id, id);")
+
+    # 12. Smart Food Safety Alerts
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS food_safety_alerts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        alert_id TEXT UNIQUE NOT NULL,
+        shipment_id TEXT NOT NULL,
+        sensor_id TEXT NOT NULL,
+        truck_id TEXT,
+        food_name TEXT,
+        category TEXT,
+        alert_type TEXT NOT NULL,
+        severity TEXT NOT NULL,
+        parameter TEXT NOT NULL,
+        recorded_value REAL,
+        threshold_value REAL,
+        message TEXT NOT NULL,
+        timestamp TEXT NOT NULL,
+        acknowledged INTEGER DEFAULT 0,
+        acknowledged_by TEXT,
+        acknowledged_at TEXT,
+        resolution_notes TEXT
+    );
+    """)
+
+    # 13. Dynamic AI Shelf-Life Predictions
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS shelf_life_predictions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        shipment_id TEXT NOT NULL,
+        food_name TEXT NOT NULL,
+        category TEXT NOT NULL,
+        harvest_date TEXT,
+        initial_grade TEXT,
+        transport_duration_hours REAL,
+        avg_temperature REAL,
+        max_temperature REAL,
+        thermal_abuse_degree_hours REAL,
+        avg_humidity REAL,
+        estimated_remaining_days REAL,
+        estimated_remaining_hours REAL,
+        quality_risk_score REAL,
+        prediction_confidence_pct REAL,
+        uncertainty_hours REAL,
+        degradation_trend_json TEXT,
+        disclaimer TEXT,
+        calculated_at TEXT NOT NULL
+    );
+    """)
+
+    # Views or alias tables for Temperature_History and Humidity_History as specified in requirements
+    cursor.execute("""
+    CREATE VIEW IF NOT EXISTS temperature_history AS
+    SELECT id, sensor_id, shipment_id, truck_id, temperature, is_simulated, data_source, timestamp
+    FROM sensor_readings;
+    """)
+
+    cursor.execute("""
+    CREATE VIEW IF NOT EXISTS humidity_history AS
+    SELECT id, sensor_id, shipment_id, truck_id, humidity, is_simulated, data_source, timestamp
+    FROM sensor_readings;
+    """)
+
+    # Also register default alias tables in case explicit uppercase is queried
+    cursor.execute("CREATE TABLE IF NOT EXISTS IoT_Sensors AS SELECT * FROM iot_sensors WHERE 1=0;")
+    cursor.execute("CREATE TABLE IF NOT EXISTS Sensor_Readings AS SELECT * FROM sensor_readings WHERE 1=0;")
+    cursor.execute("CREATE TABLE IF NOT EXISTS Food_Shipments AS SELECT * FROM food_shipments WHERE 1=0;")
+    cursor.execute("CREATE TABLE IF NOT EXISTS Food_Safety_Alerts AS SELECT * FROM food_safety_alerts WHERE 1=0;")
+    cursor.execute("CREATE TABLE IF NOT EXISTS Shelf_Life_Predictions AS SELECT * FROM shelf_life_predictions WHERE 1=0;")
+
     conn.commit()
     conn.close()
 
 if __name__ == "__main__":
     init_db()
     print(f"Database successfully initialized at: {DB_PATH}")
+

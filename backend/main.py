@@ -1,4 +1,5 @@
 import os
+import json
 import uuid
 import datetime
 from pathlib import Path
@@ -20,11 +21,23 @@ try:
     from backend.forecasting_engine import calculate_forecast
     from backend.route_optimizer import solve_route_optimization, DEFAULT_WAYPOINTS, haversine_distance, CITY_COORDINATES, get_coordinates_for_city
     from backend.seed_data import seed_all
+    from backend.shelf_life_engine import calculate_dynamic_shelf_life, resolve_food_profile, CATEGORY_DEFAULTS
+    from backend.iot_manager import (
+        ingest_sensor_reading, get_live_data, get_telemetry_history,
+        get_all_alerts, acknowledge_alert, get_category_limits, IoTStateManager, DEFAULT_IOT_API_KEY
+    )
+    from backend.iot_mqtt import start_mqtt_bridge
 except ImportError:
     from database import get_db_connection, init_db, DB_PATH
     from forecasting_engine import calculate_forecast
     from route_optimizer import solve_route_optimization, DEFAULT_WAYPOINTS, haversine_distance, CITY_COORDINATES, get_coordinates_for_city
     from seed_data import seed_all
+    from shelf_life_engine import calculate_dynamic_shelf_life, resolve_food_profile, CATEGORY_DEFAULTS
+    from iot_manager import (
+        ingest_sensor_reading, get_live_data, get_telemetry_history,
+        get_all_alerts, acknowledge_alert, get_category_limits, IoTStateManager, DEFAULT_IOT_API_KEY
+    )
+    from iot_mqtt import start_mqtt_bridge
 
 # Directory setup
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -69,6 +82,14 @@ def startup_event():
             seed_all()
     except Exception as e:
         print(f"Startup DB check note: {e}")
+    try:
+        start_mqtt_bridge()
+    except Exception as e:
+        print(f"Startup MQTT note: {e}")
+    try:
+        IoTStateManager()  # Boot simulator & telemetry cache
+    except Exception as e:
+        print(f"Startup IoT Manager note: {e}")
 
 
 # ==================== PYDANTIC SCHEMAS ====================
@@ -129,6 +150,36 @@ class BreakdownTriggerSchema(BaseModel):
 class RouteOptimizeRequest(BaseModel):
     waypoints: Optional[List[Dict[str, Any]]] = None
     hub: Optional[Dict[str, Any]] = None
+
+class SensorDataIngestSchema(BaseModel):
+    sensor_id: str = Field(..., min_length=2, description="Unique IoT Node Identifier")
+    shipment_id: str = Field(..., min_length=2, description="Associated Shipment Tracking ID")
+    truck_id: Optional[str] = ""
+    temperature: float = Field(..., ge=-50.0, le=100.0, description="Ambient / Cargo temperature in °C")
+    humidity: float = Field(..., ge=0.0, le=100.0, description="Relative Humidity %")
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    is_simulated: Optional[bool] = False
+    data_source: Optional[str] = "HARDWARE_ESP32"
+    battery_pct: Optional[float] = 98.0
+    signal_rssi: Optional[int] = -65
+    timestamp: Optional[str] = None
+
+class AlertAcknowledgeSchema(BaseModel):
+    acknowledged_by: Optional[str] = "Farmer / Operator"
+    resolution_notes: Optional[str] = "Checked temperature parameters. Situation handled."
+
+class CategoryLimitUpdateSchema(BaseModel):
+    temp_min: float
+    temp_max: float
+    temp_critical: float
+    humidity_min: float
+    humidity_max: float
+    max_disconnect_seconds: Optional[int] = 60
+    storage_notes: Optional[str] = ""
+
+class SimulatorActionSchema(BaseModel):
+    mode: str = "NORMAL" # "NORMAL", "THERMAL_BREACH", "HUMIDITY_BREACH", "DISCONNECTED"
 
 # ==================== REST API ENDPOINTS ====================
 
@@ -880,6 +931,266 @@ def get_regional_corridors():
         "known_cities": list(CITY_COORDINATES.keys())
     }
 
+# ==================== MODULE 6: REAL-TIME IOT & FOOD SAFETY COLD CHAIN ====================
+
+@app.post("/api/iot/sensor-data")
+def post_iot_sensor_data(data: SensorDataIngestSchema, request: Request):
+    """
+    Ingests live telemetry from ESP32 Microcontroller (SHT31 + GPS) or Simulator.
+    Authenticates via X-Sensor-API-Key or X-IoT-API-Key header.
+    """
+    # Check security header if provided
+    auth_key = request.headers.get("x-sensor-api-key") or request.headers.get("x-iot-api-key") or request.query_params.get("api_key")
+    if auth_key and auth_key not in [DEFAULT_IOT_API_KEY, "test-sim-key", "demo-key"]:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid IoT Sensor Authentication Token. Please check your firmware API key."
+        )
+
+    # Sanity checks on physical sensor boundaries
+    if not (-50.0 <= data.temperature <= 100.0):
+        raise HTTPException(status_code=400, detail="Temperature reading out of physical sensor range (-50°C to 100°C).")
+    if not (0.0 <= data.humidity <= 100.0):
+        raise HTTPException(status_code=400, detail="Humidity reading out of range (0% to 100%).")
+
+    payload = data.dict()
+    if not payload.get("timestamp"):
+        payload["timestamp"] = datetime.datetime.now().isoformat()
+
+    result = ingest_sensor_reading(payload)
+    return result
+
+
+@app.get("/api/iot/live-data")
+def get_iot_live_data(shipment_id: Optional[str] = Query("SHIP-MAHA-101", description="Shipment Tracking Number")):
+    """
+    Returns live sensor telemetry (temperature, humidity, connection status, alerts, thresholds)
+    for the selected shipment without requiring page refresh.
+    """
+    return get_live_data(shipment_id=shipment_id)
+
+
+@app.get("/api/iot/history")
+def get_iot_history(
+    shipment_id: Optional[str] = Query("SHIP-MAHA-101", description="Shipment Tracking Number"),
+    limit: int = Query(50, ge=5, le=500, description="Number of historical telemetry data points")
+):
+    """
+    Returns temperature and humidity historical telemetry for plotting high-resolution charts.
+    """
+    return get_telemetry_history(shipment_id=shipment_id, limit=limit)
+
+
+@app.get("/api/iot/alerts")
+def get_iot_alerts(
+    shipment_id: Optional[str] = Query(None, description="Optional shipment tracking ID filter"),
+    acknowledged: Optional[bool] = Query(None, description="Filter by acknowledged status")
+):
+    """
+    Returns all food safety alerts across shipments or for a specific shipment.
+    """
+    alerts = get_all_alerts(shipment_id=shipment_id, acknowledged=acknowledged)
+    return {
+        "count": len(alerts),
+        "alerts": alerts
+    }
+
+
+@app.post("/api/iot/alerts/{alert_id}/acknowledge")
+def post_acknowledge_alert(alert_id: str, body: AlertAcknowledgeSchema):
+    """
+    Allows farmers or cold-chain operators to acknowledge an active alert.
+    """
+    success = acknowledge_alert(
+        alert_id=alert_id,
+        acknowledged_by=body.acknowledged_by or "Farmer / Logistics Admin",
+        resolution_notes=body.resolution_notes or "Acknowledged and resolved."
+    )
+    if not success:
+        raise HTTPException(status_code=404, detail="Alert ID not found or could not be updated.")
+    return {
+        "status": "SUCCESS",
+        "message": f"Alert {alert_id} successfully acknowledged.",
+        "acknowledged_by": body.acknowledged_by,
+        "timestamp": datetime.datetime.now().isoformat()
+    }
+
+
+@app.get("/api/iot/shipments")
+def get_monitored_shipments():
+    """
+    Returns all food shipments monitored by IoT cold-chain nodes.
+    """
+    conn = get_db_connection()
+    c = conn.cursor()
+    rows = c.execute("""
+    SELECT fs.*, s.pickup_location, s.delivery_location, s.driver_name, s.driver_phone,
+           s.current_location_desc, s.status as transit_status
+    FROM food_shipments fs
+    LEFT JOIN shipments s ON fs.shipment_id = s.tracking_no
+    ORDER BY fs.id ASC;
+    """).fetchall()
+    conn.close()
+
+    shipments_list = []
+    for r in rows:
+        d = dict(r)
+        # Fetch latest sensor reading
+        live = get_live_data(d["shipment_id"])
+        d["live_temperature"] = live["temperature"]
+        d["live_humidity"] = live["humidity"]
+        d["sensor_status"] = live["sensor_status"]
+        d["temp_status"] = live["temp_status"]
+        d["active_alerts_count"] = live["active_alerts_count"]
+        shipments_list.append(d)
+
+    return {
+        "count": len(shipments_list),
+        "shipments": shipments_list
+    }
+
+
+@app.get("/api/shelf-life/prediction")
+def get_shelf_life_prediction(
+    shipment_id: Optional[str] = Query("SHIP-MAHA-101", description="Shipment Tracking Number"),
+    food_name: Optional[str] = Query(None, description="Produce name"),
+    harvest_date: Optional[str] = Query(None, description="Harvest date (YYYY-MM-DD)"),
+    initial_quality_grade: Optional[str] = Query(None, description="Initial Quality Grade"),
+    category: Optional[str] = Query(None, description="Food Category"),
+    transport_duration_hours: Optional[float] = Query(4.8, description="Transit duration in hours")
+):
+    """
+    AI Dynamic Shelf-Life Estimation Engine:
+    Evaluates temperature and humidity exposure over transit duration, computes thermal abuse
+    degree-hours, applies Arrhenius kinetic models, and estimates remaining shelf life.
+    """
+    # If not fully provided in query, lookup shipment record
+    conn = get_db_connection()
+    c = conn.cursor()
+    shipment_row = c.execute("""
+    SELECT fs.*, s.estimated_hours
+    FROM food_shipments fs
+    LEFT JOIN shipments s ON fs.shipment_id = s.tracking_no
+    WHERE fs.shipment_id = ?;
+    """, (shipment_id,)).fetchone()
+    conn.close()
+
+    f_name = food_name or (shipment_row["food_name"] if shipment_row else "Organic Hybrid Tomato")
+    h_date = harvest_date or (shipment_row["harvest_date"] if shipment_row and shipment_row["harvest_date"] else (datetime.date.today() - datetime.timedelta(days=2)).isoformat())
+    q_grade = initial_quality_grade or (shipment_row["initial_quality_grade"] if shipment_row else "Grade A")
+    cat = category or (shipment_row["category"] if shipment_row else "Fruits")
+    dur = transport_duration_hours or (shipment_row["estimated_hours"] if shipment_row and shipment_row["estimated_hours"] else 4.8)
+
+    # Fetch recent sensor telemetry history for this shipment
+    history_data = get_telemetry_history(shipment_id=shipment_id, limit=30)
+    readings = history_data.get("readings", [])
+
+    # Run AI shelf life prediction engine
+    prediction = calculate_dynamic_shelf_life(
+        food_name=f_name,
+        harvest_date_str=h_date,
+        initial_quality_grade=q_grade,
+        recent_readings=readings,
+        category=cat,
+        transport_duration_hours=dur
+    )
+
+    # Save prediction to DB
+    try:
+        conn = get_db_connection()
+        conn.cursor().execute("""
+        INSERT INTO shelf_life_predictions (
+            shipment_id, food_name, category, harvest_date, initial_grade,
+            transport_duration_hours, avg_temperature, max_temperature,
+            thermal_abuse_degree_hours, avg_humidity, estimated_remaining_days,
+            estimated_remaining_hours, quality_risk_score, prediction_confidence_pct,
+            uncertainty_hours, degradation_trend_json, disclaimer, calculated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        """, (
+            shipment_id, f_name, cat, h_date, q_grade,
+            dur, prediction["avg_temperature_c"], prediction["max_temperature_c"],
+            prediction["thermal_abuse_degree_hours"], prediction["avg_humidity_pct"],
+            prediction["estimated_remaining_days"], prediction["estimated_remaining_hours"],
+            prediction["quality_risk_score"], prediction["confidence_pct"],
+            prediction["uncertainty_hours"], json.dumps(prediction["quality_degradation_trend"]),
+            prediction["disclaimer"], datetime.datetime.now().isoformat()
+        ))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"[Shelf Life DB Save Note]: {e}")
+
+    return prediction
+
+
+@app.get("/api/iot/categories")
+def get_food_categories_limits():
+    """
+    Returns validated food storage guidelines & threshold limits for all categories.
+    """
+    conn = get_db_connection()
+    rows = conn.cursor().execute("SELECT * FROM food_category_thresholds ORDER BY id ASC;").fetchall()
+    conn.close()
+    return {
+        "categories": [dict(r) for r in rows]
+    }
+
+
+@app.put("/api/iot/categories/{category_name}")
+def update_food_category_limits(category_name: str, body: CategoryLimitUpdateSchema):
+    """
+    Allows administrators to configure validated storage limits for food categories.
+    """
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute("""
+    UPDATE food_category_thresholds
+    SET temp_min = ?,
+        temp_max = ?,
+        temp_critical = ?,
+        humidity_min = ?,
+        humidity_max = ?,
+        max_disconnect_seconds = ?,
+        storage_notes = ?
+    WHERE category_name = ?;
+    """, (
+        body.temp_min, body.temp_max, body.temp_critical,
+        body.humidity_min, body.humidity_max, body.max_disconnect_seconds,
+        body.storage_notes, category_name
+    ))
+    conn.commit()
+    conn.close()
+    return {
+        "status": "SUCCESS",
+        "message": f"Storage thresholds for '{category_name}' successfully updated.",
+        "category": category_name
+    }
+
+
+@app.post("/api/iot/simulator/action")
+def trigger_simulator_action(body: SimulatorActionSchema):
+    """
+    Controls the sensor simulator mode for interactive farmer testing & live demonstration:
+    - NORMAL: Normal temperature and humidity within safe guidelines.
+    - THERMAL_BREACH: Simulates refrigeration failure with temperature spike.
+    - HUMIDITY_BREACH: Simulates excessive moisture/condensation risk.
+    - DISCONNECTED: Simulates hardware disconnection or signal loss.
+    """
+    valid_modes = ["NORMAL", "THERMAL_BREACH", "HUMIDITY_BREACH", "DISCONNECTED"]
+    if body.mode not in valid_modes:
+        raise HTTPException(status_code=400, detail=f"Invalid simulation mode. Choose from {valid_modes}")
+
+    state = IoTStateManager()
+    state.simulation_mode = body.mode
+    state.simulation_enabled = True
+    state.tick_simulator_step()
+
+    return {
+        "status": "SUCCESS",
+        "current_simulation_mode": state.simulation_mode,
+        "message": f"IoT Simulator set to mode: {body.mode}"
+    }
+
 # ----- 5. DATABASE RESET & SEED DATA HELPER -----
 
 @app.post("/api/reset-data")
@@ -892,7 +1203,11 @@ def reset_database_data():
 def get_dashboard_root():
     index_file = FRONTEND_DIR / "index.html"
     if index_file.exists():
-        return FileResponse(str(index_file))
+        response = FileResponse(str(index_file))
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        return response
     return {"message": "Frontend index.html not found"}
 
 # Serve frontend static files

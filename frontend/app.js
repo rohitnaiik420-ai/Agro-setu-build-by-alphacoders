@@ -1,3 +1,6 @@
+// Dynamic API Base configuration supporting localhost, LAN IP, and file:// protocol
+const API_BASE = (window.location.protocol === 'file:' || (window.location.port && window.location.port !== '8000' && window.location.port !== '80')) ? 'http://127.0.0.1:8000' : '';
+
 // AgroSetu AI - Client Application Logic
 
 let allProducts = [];
@@ -5,6 +8,14 @@ let forecastChartInstance = null;
 let leafletMapInstance = null;
 let mapPolyline = null;
 let mapMarkers = [];
+
+// IoT Cold Chain & Food Safety Global State
+let iotTempChartInstance = null;
+let iotHumChartInstance = null;
+let iotShelfLifeChartInstance = null;
+let currentIotShipmentId = 'SHIP-MAHA-101';
+let iotPollingInterval = null;
+let cachedIotCategories = [];
 
 // ==================== INITIALIZATION ====================
 
@@ -34,6 +45,8 @@ document.addEventListener('DOMContentLoaded', () => {
   loadVehicles();
   loadFarmerDispatches();
   runForecast();
+  loadIotCategories();
+  loadIotShipments();
 });
 
 // ==================== TAB SWITCHING ====================
@@ -72,6 +85,14 @@ function switchTab(tabId) {
     loadFarmerDispatches();
   } else if (tabId === 'buyer') {
     loadProducts();
+  } else if (tabId === 'foodsafety') {
+    initFoodSafetyModule();
+  }
+
+  // Manage IoT Polling (active only on foodsafety tab to conserve resources)
+  if (tabId !== 'foodsafety' && iotPollingInterval) {
+    clearInterval(iotPollingInterval);
+    iotPollingInterval = null;
   }
 }
 
@@ -98,7 +119,7 @@ function showToast(message, type = 'success') {
 
 async function loadStats() {
   try {
-    const res = await fetch('/api/stats');
+    const res = await fetch(`${API_BASE}/api/stats`);
     if (!res.ok) return;
     const data = await res.json();
     
@@ -116,7 +137,7 @@ async function loadStats() {
 
 async function loadProducts() {
   try {
-    const res = await fetch('/api/products');
+    const res = await fetch(`${API_BASE}/api/products`);
     if (!res.ok) return;
     allProducts = await res.json();
     renderFarmerInventory(allProducts);
@@ -246,7 +267,7 @@ async function handleProductUpload(e) {
   };
 
   try {
-    const res = await fetch('/api/products', {
+    const res = await fetch(`${API_BASE}/api/products`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -320,7 +341,7 @@ async function handlePlaceOrder(e) {
   };
 
   try {
-    const res = await fetch('/api/orders', {
+    const res = await fetch(`${API_BASE}/api/orders`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -358,7 +379,7 @@ function closeReceiptModal() {
 
 async function loadShipments() {
   try {
-    const res = await fetch('/api/shipments');
+    const res = await fetch(`${API_BASE}/api/shipments`);
     if (!res.ok) return;
     const shipments = await res.json();
     renderShipments(shipments);
@@ -456,7 +477,7 @@ async function advanceShipmentStatus(shipmentId, currentStatus) {
   const nextStatus = steps[nextIdx];
 
   try {
-    const res = await fetch(`/api/shipments/${shipmentId}/status`, {
+    const res = await fetch(`${API_BASE}/api/shipments/${shipmentId}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: nextStatus })
@@ -474,7 +495,7 @@ async function advanceShipmentStatus(shipmentId, currentStatus) {
 
 async function loadVehicles() {
   try {
-    const res = await fetch('/api/vehicles');
+    const res = await fetch(`${API_BASE}/api/vehicles`);
     if (!res.ok) return;
     const vehicles = await res.json();
     renderVehicles(vehicles);
@@ -524,7 +545,7 @@ async function handleCreateShipment(e) {
   };
 
   try {
-    const res = await fetch('/api/shipments', {
+    const res = await fetch(`${API_BASE}/api/shipments`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -622,7 +643,7 @@ async function loadLogisticsTracking(shipmentId) {
   if (!shipmentId) return;
 
   try {
-    const res = await fetch(`/api/logistics/tracking/${shipmentId}`);
+    const res = await fetch(`${API_BASE}/api/logistics/tracking/${shipmentId}`);
     if (!res.ok) return;
     const data = await res.json();
     currentTrackingData = data;
@@ -875,7 +896,7 @@ async function simulateVehicleBreakdown() {
   if (btn) btn.disabled = true;
 
   try {
-    const res = await fetch(`/api/logistics/breakdown/${currentTrackingShipmentId}`, {
+    const res = await fetch(`${API_BASE}/api/logistics/breakdown/${currentTrackingShipmentId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -909,7 +930,7 @@ async function resolveVehicleBreakdown() {
   if (btn) btn.disabled = true;
 
   try {
-    const res = await fetch(`/api/logistics/resolve-breakdown/${currentTrackingShipmentId}`, {
+    const res = await fetch(`${API_BASE}/api/logistics/resolve-breakdown/${currentTrackingShipmentId}`, {
       method: 'POST'
     });
 
@@ -935,7 +956,7 @@ async function loadFarmerDispatches() {
   if (!container) return;
 
   try {
-    const res = await fetch('/api/shipments');
+    const res = await fetch(`${API_BASE}/api/shipments`);
     if (!res.ok) return;
     const shipments = await res.json();
     renderFarmerDispatches(shipments);
@@ -1173,7 +1194,7 @@ async function runRouteOptimization() {
       if (currentCustomHub) payload.hub = currentCustomHub;
     }
 
-    const res = await fetch('/api/route/optimize', {
+    const res = await fetch(`${API_BASE}/api/route/optimize`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -1279,7 +1300,7 @@ function renderRouteOptimization(data) {
 async function resetData() {
   if (!confirm("Reset database to clean initial sample state?")) return;
   try {
-    const res = await fetch('/api/reset-data', { method: 'POST' });
+    const res = await fetch(`${API_BASE}/api/reset-data`, { method: 'POST' });
     if (res.ok) {
       showToast("Database reset to initial demo state!");
       loadStats();
@@ -1545,7 +1566,7 @@ let currentCustomHub = null;
 
 async function fetchCorridors() {
   try {
-    const res = await fetch('/api/corridors');
+    const res = await fetch(`${API_BASE}/api/corridors`);
     if (res.ok) {
       regionalCorridorsData = await res.json();
     }
@@ -1591,7 +1612,7 @@ function closeFarmerRegisterModal() {
 
 async function loadFarmersDropdown() {
   try {
-    const res = await fetch('/api/farmers');
+    const res = await fetch(`${API_BASE}/api/farmers`);
     if (!res.ok) return;
     const farmers = await res.json();
     const select = document.getElementById('prod-farmer-id');
@@ -1617,7 +1638,7 @@ async function handleFarmerRegister(e) {
   };
 
   try {
-    const res = await fetch('/api/farmers', {
+    const res = await fetch(`${API_BASE}/api/farmers`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -1650,7 +1671,7 @@ async function openMobileConnectModal() {
   if (modal) modal.classList.remove('hidden');
 
   try {
-    const res = await fetch('/api/network-info');
+    const res = await fetch(`${API_BASE}/api/network-info`);
     if (res.ok) {
       const info = await res.json();
       const mobileUrl = info.mobile_url;
@@ -1732,5 +1753,763 @@ function handleAddWaypoint(e) {
   document.getElementById('add-waypoint-form').reset();
   showToast(`Added ${farmerName} (${location}) to AI route!`, "success");
   runRouteOptimization();
+}
+
+// ==================== MODULE 6: REAL-TIME IOT FOOD SAFETY & COLD CHAIN ====================
+
+async function initFoodSafetyModule() {
+  const selectEl = document.getElementById('iot-shipment-select');
+  if (selectEl && selectEl.value) {
+    currentIotShipmentId = selectEl.value;
+  }
+
+  // Initial fetch
+  await Promise.all([
+    pollIotTelemetry(),
+    loadIotHistoryCharts(currentIotShipmentId),
+    loadIotAlerts(currentIotShipmentId),
+    loadShelfLifePrediction(currentIotShipmentId),
+    loadIotCategories(),
+    loadIotShipments()
+  ]);
+
+  // Start smooth live telemetry polling (every 3 seconds)
+  if (iotPollingInterval) clearInterval(iotPollingInterval);
+  iotPollingInterval = setInterval(() => {
+    pollIotTelemetry();
+    // Update charts periodically every 9 seconds
+    if (Math.random() < 0.35) {
+      loadIotHistoryCharts(currentIotShipmentId);
+    }
+  }, 3000);
+}
+
+function changeIotShipment(shipmentId) {
+  currentIotShipmentId = shipmentId;
+  pollIotTelemetry();
+  loadIotHistoryCharts(shipmentId);
+  loadIotAlerts(shipmentId);
+  loadShelfLifePrediction(shipmentId);
+}
+
+async function pollIotTelemetry() {
+  try {
+    const res = await fetch(`${API_BASE}/api/iot/live-data?shipment_id=${encodeURIComponent(currentIotShipmentId)}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    updateIotLiveUI(data);
+  } catch (err) {
+    console.error("Error polling IoT live telemetry:", err);
+  }
+}
+
+function updateIotLiveUI(data) {
+  // 1. Live Temperature KPI
+  const tempEl = document.getElementById('kpi-live-temp');
+  const tempBadge = document.getElementById('kpi-temp-badge');
+  const tempIconBox = document.getElementById('kpi-temp-icon-box');
+  const tempTarget = document.getElementById('kpi-temp-target');
+  const tempCrit = document.getElementById('kpi-temp-critical');
+
+  if (tempEl) tempEl.innerText = `${data.temperature.toFixed(1)} °C`;
+  if (tempTarget && data.category_limits) {
+    tempTarget.innerText = `${data.category_limits.temp_min}°C - ${data.category_limits.temp_max}°C`;
+  }
+  if (tempCrit && data.category_limits) {
+    tempCrit.innerText = `> ${data.category_limits.temp_critical}°C`;
+  }
+
+  if (tempBadge && tempIconBox) {
+    if (data.temp_status === 'CRITICAL_HIGH') {
+      tempBadge.innerText = 'CRITICAL HIGH';
+      tempBadge.className = 'text-[11px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-300 animate-pulse';
+      tempIconBox.className = 'w-12 h-12 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center text-2xl shadow-inner';
+    } else if (data.temp_status === 'WARNING_HIGH') {
+      tempBadge.innerText = 'WARNING (HIGH)';
+      tempBadge.className = 'text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300';
+      tempIconBox.className = 'w-12 h-12 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center text-2xl shadow-inner';
+    } else if (data.temp_status === 'WARNING_LOW') {
+      tempBadge.innerText = 'WARNING (CHILLING)';
+      tempBadge.className = 'text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-300';
+      tempIconBox.className = 'w-12 h-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center text-2xl shadow-inner';
+    } else {
+      tempBadge.innerText = 'OPTIMAL';
+      tempBadge.className = 'text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300';
+      tempIconBox.className = 'w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-2xl shadow-inner';
+    }
+  }
+
+  // 2. Live Humidity KPI
+  const humEl = document.getElementById('kpi-live-hum');
+  const humBadge = document.getElementById('kpi-hum-badge');
+  const humTarget = document.getElementById('kpi-hum-target');
+  const humIconBox = document.getElementById('kpi-hum-icon-box');
+
+  if (humEl) humEl.innerText = `${data.humidity.toFixed(1)} %`;
+  if (humTarget && data.category_limits) {
+    humTarget.innerText = `${data.category_limits.humidity_min}% - ${data.category_limits.humidity_max}%`;
+  }
+
+  if (humBadge && humIconBox) {
+    if (data.humidity_status === 'WARNING_HIGH') {
+      humBadge.innerText = 'CONDENSATION RISK';
+      humBadge.className = 'text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300';
+      humIconBox.className = 'w-12 h-12 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center text-2xl shadow-inner';
+    } else if (data.humidity_status === 'WARNING_LOW') {
+      humBadge.innerText = 'DESICCATION RISK';
+      humBadge.className = 'text-[11px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-800 border border-orange-300';
+      humIconBox.className = 'w-12 h-12 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center text-2xl shadow-inner';
+    } else {
+      humBadge.innerText = 'NORMAL';
+      humBadge.className = 'text-[11px] font-bold px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-800 border border-cyan-300';
+      humIconBox.className = 'w-12 h-12 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center text-2xl shadow-inner';
+    }
+  }
+
+  // 3. Hardware / Demo Mode Badge & Connection Status
+  const sourceBadge = document.getElementById('iot-data-source-badge');
+  if (sourceBadge) {
+    if (data.is_simulated) {
+      sourceBadge.className = 'px-2.5 py-1 rounded-md bg-amber-950 text-amber-300 border border-amber-400/40 font-semibold flex items-center space-x-1.5';
+      sourceBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400"></span><span>DATA SOURCE: DEMO SIMULATOR</span>`;
+    } else {
+      sourceBadge.className = 'px-2.5 py-1 rounded-md bg-emerald-950 text-emerald-300 border border-emerald-400/40 font-semibold flex items-center space-x-1.5';
+      sourceBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span><span>DATA SOURCE: ESP32 HARDWARE</span>`;
+    }
+  }
+
+  const connStatusBadge = document.getElementById('iot-sensor-status-badge');
+  const connStatusText = document.getElementById('iot-connection-status-text');
+  if (connStatusBadge && connStatusText) {
+    if (data.sensor_status === 'OFFLINE') {
+      connStatusBadge.className = 'px-2.5 py-1 rounded-md bg-rose-600 text-white font-semibold flex items-center space-x-1.5 animate-pulse';
+      connStatusText.innerText = `SENSOR OFFLINE (${data.seconds_since_last_packet}s elapsed)`;
+    } else if (data.sensor_status === 'DEGRADED') {
+      connStatusBadge.className = 'px-2.5 py-1 rounded-md bg-amber-600 text-white font-semibold flex items-center space-x-1.5';
+      connStatusText.innerText = 'SIGNAL DEGRADED';
+    } else {
+      connStatusBadge.className = 'px-2.5 py-1 rounded-md bg-emerald-600/70 text-white font-semibold flex items-center space-x-1.5';
+      connStatusText.innerText = 'SENSOR ONLINE (SHT31 Active)';
+    }
+  }
+
+  // Last Packet Time
+  const lastUpdatedEl = document.getElementById('iot-last-updated-text');
+  if (lastUpdatedEl) {
+    if (data.seconds_since_last_packet < 5) {
+      lastUpdatedEl.innerText = 'Just now';
+    } else {
+      lastUpdatedEl.innerText = `${data.seconds_since_last_packet}s ago`;
+    }
+  }
+
+  // Fleet & Hardware Info
+  const truckEl = document.getElementById('kpi-truck-no');
+  const sensorEl = document.getElementById('kpi-sensor-id');
+  const batteryEl = document.getElementById('kpi-battery-pct');
+  const signalEl = document.getElementById('kpi-signal-rssi');
+
+  if (truckEl) truckEl.innerText = data.truck_id || 'MH-12-PQ-8901';
+  if (sensorEl) sensorEl.innerText = `${data.sensor_id} (${data.category})`;
+  if (batteryEl) batteryEl.innerText = `${data.battery_pct}%`;
+  if (signalEl) signalEl.innerText = `${data.signal_rssi} dBm`;
+
+  // Simulator mode button highlights
+  const activeMode = data.simulation_mode || 'NORMAL';
+  document.querySelectorAll('.sim-mode-btn').forEach(btn => btn.classList.remove('ring-2', 'ring-cyan-500', 'font-black'));
+  const btnMap = {
+    'NORMAL': 'sim-btn-normal',
+    'THERMAL_BREACH': 'sim-btn-thermal',
+    'HUMIDITY_BREACH': 'sim-btn-hum',
+    'DISCONNECTED': 'sim-btn-disc'
+  };
+  const activeBtn = document.getElementById(btnMap[activeMode]);
+  if (activeBtn) activeBtn.classList.add('ring-2', 'ring-cyan-500', 'font-black');
+}
+
+async function loadIotHistoryCharts(shipmentId) {
+  try {
+    const res = await fetch(`${API_BASE}/api/iot/history?shipment_id=${encodeURIComponent(shipmentId)}&limit=30`);
+    if (!res.ok) return;
+    const historyData = await res.json();
+    const readings = historyData.readings || [];
+
+    const labels = readings.map(r => {
+      const ts = r.timestamp || '';
+      return ts.includes('T') ? ts.split('T')[1].substring(0, 8) : ts;
+    });
+    const temps = readings.map(r => r.temperature);
+    const hums = readings.map(r => r.humidity);
+
+    // 1. Render Temperature Chart
+    const tempCanvas = document.getElementById('iot-temp-chart');
+    if (tempCanvas) {
+      if (iotTempChartInstance) iotTempChartInstance.destroy();
+
+      iotTempChartInstance = new Chart(tempCanvas.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: 'Measured Temp (°C)',
+              data: temps,
+              borderColor: '#10b981',
+              backgroundColor: 'rgba(16, 185, 129, 0.1)',
+              borderWidth: 2.5,
+              tension: 0.35,
+              pointRadius: 3,
+              pointBackgroundColor: '#047857',
+              fill: true
+            },
+            {
+              label: 'Max Recommended Limit (14°C)',
+              data: labels.map(() => 14.0),
+              borderColor: '#f59e0b',
+              borderWidth: 1.5,
+              borderDash: [5, 4],
+              pointRadius: 0,
+              fill: false
+            },
+            {
+              label: 'Critical Spoilage Limit (20°C)',
+              data: labels.map(() => 20.0),
+              borderColor: '#ef4444',
+              borderWidth: 1.5,
+              borderDash: [3, 3],
+              pointRadius: 0,
+              fill: false
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'top', labels: { boxWidth: 12, font: { size: 10 } } },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => `${ctx.dataset.label}: ${ctx.raw} °C`
+              }
+            }
+          },
+          scales: {
+            y: {
+              title: { display: true, text: 'Temperature (°C)', font: { size: 11 } },
+              suggestedMin: 5,
+              suggestedMax: 25
+            },
+            x: {
+              ticks: { maxTicksLimit: 7, font: { size: 9 } }
+            }
+          }
+        }
+      });
+    }
+
+    // 2. Render Humidity Chart
+    const humCanvas = document.getElementById('iot-hum-chart');
+    if (humCanvas) {
+      if (iotHumChartInstance) iotHumChartInstance.destroy();
+
+      iotHumChartInstance = new Chart(humCanvas.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: 'Relative Humidity (%)',
+              data: hums,
+              borderColor: '#06b6d4',
+              backgroundColor: 'rgba(6, 182, 212, 0.12)',
+              borderWidth: 2.5,
+              tension: 0.35,
+              pointRadius: 3,
+              pointBackgroundColor: '#0891b2',
+              fill: true
+            },
+            {
+              label: 'Target Upper RH (92%)',
+              data: labels.map(() => 92.0),
+              borderColor: '#10b981',
+              borderWidth: 1.5,
+              borderDash: [5, 4],
+              pointRadius: 0,
+              fill: false
+            },
+            {
+              label: 'Target Lower RH (85%)',
+              data: labels.map(() => 85.0),
+              borderColor: '#f59e0b',
+              borderWidth: 1.5,
+              borderDash: [5, 4],
+              pointRadius: 0,
+              fill: false
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'top', labels: { boxWidth: 12, font: { size: 10 } } },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => `${ctx.dataset.label}: ${ctx.raw} %`
+              }
+            }
+          },
+          scales: {
+            y: {
+              title: { display: true, text: 'Humidity (%)', font: { size: 11 } },
+              suggestedMin: 60,
+              suggestedMax: 100
+            },
+            x: {
+              ticks: { maxTicksLimit: 7, font: { size: 9 } }
+            }
+          }
+        }
+      });
+    }
+  } catch (err) {
+    console.error("Error loading IoT history charts:", err);
+  }
+}
+
+async function loadIotAlerts(shipmentId) {
+  try {
+    const url = shipmentId ? `/api/iot/alerts?shipment_id=${encodeURIComponent(shipmentId)}` : `/api/iot/alerts`;
+    const res = await fetch(url);
+    if (!res.ok) return;
+    const data = await res.json();
+    const alerts = data.alerts || [];
+
+    const listEl = document.getElementById('iot-alerts-list');
+    const summaryPill = document.getElementById('alert-summary-pill');
+
+    const activeAlerts = alerts.filter(a => !a.acknowledged);
+    if (summaryPill) {
+      summaryPill.innerText = `${activeAlerts.length} Active Alert${activeAlerts.length === 1 ? '' : 's'}`;
+      summaryPill.className = activeAlerts.length > 0 
+        ? 'text-xs font-bold px-2.5 py-1 rounded-full bg-rose-100 text-rose-800 border border-rose-300 animate-pulse'
+        : 'text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800';
+    }
+
+    if (!listEl) return;
+
+    if (alerts.length === 0) {
+      listEl.innerHTML = `
+        <div class="text-center py-8 text-slate-400 text-xs">
+          <i class="fa-solid fa-circle-check text-emerald-500 text-3xl mb-2"></i>
+          <p class="font-semibold text-slate-600">All storage conditions optimal.</p>
+          <p class="text-[11px] text-slate-400">No cold chain violations recorded.</p>
+        </div>`;
+      return;
+    }
+
+    listEl.innerHTML = alerts.map(a => {
+      const isAck = Boolean(a.acknowledged);
+      const isCrit = a.severity === 'Critical';
+      const isWarn = a.severity === 'Warning';
+      
+      const badgeClass = isCrit
+        ? 'bg-rose-100 text-rose-800 border-rose-300'
+        : (isWarn ? 'bg-amber-100 text-amber-800 border-amber-300' : 'bg-slate-100 text-slate-700 border-slate-300');
+
+      const cardBg = isAck ? 'bg-slate-50 border-slate-200 opacity-75' : (isCrit ? 'bg-rose-50/70 border-rose-200' : 'bg-amber-50/60 border-amber-200');
+
+      const timeStr = a.timestamp ? (a.timestamp.includes('T') ? a.timestamp.replace('T', ' ').substring(0, 19) : a.timestamp) : '';
+
+      return `
+        <div class="p-3 rounded-xl border ${cardBg} text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 transition">
+          <div class="space-y-1">
+            <div class="flex items-center space-x-2">
+              <span class="px-2 py-0.5 rounded text-[10px] font-black border uppercase tracking-wider ${badgeClass}">
+                ${a.severity}
+              </span>
+              <strong class="text-slate-800 font-bold">${a.parameter} Alert</strong>
+              <span class="text-[10px] text-slate-400 font-mono">${a.alert_id}</span>
+            </div>
+            <p class="text-slate-700 font-medium leading-snug">${a.message}</p>
+            <div class="text-[10px] text-slate-500 flex flex-wrap gap-2">
+              <span><i class="fa-regular fa-clock mr-1"></i>${timeStr}</span>
+              ${a.recorded_value ? `<span>Value: <strong>${a.recorded_value}</strong> (Limit: ${a.threshold_value})</span>` : ''}
+              ${isAck ? `<span class="text-emerald-700 font-semibold"><i class="fa-solid fa-check mr-1"></i>Ack by: ${a.acknowledged_by || 'Farmer'}</span>` : ''}
+            </div>
+          </div>
+          <div>
+            ${!isAck ? `
+              <button onclick="openAlertAckModal('${a.alert_id}', '${a.parameter}: ${a.message.replace(/'/g, "\\'")}')" class="bg-amber-600 hover:bg-amber-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs shadow-sm transition whitespace-nowrap flex items-center space-x-1">
+                <i class="fa-solid fa-check"></i>
+                <span>Acknowledge</span>
+              </button>
+            ` : `
+              <span class="text-[11px] text-slate-400 font-medium whitespace-nowrap"><i class="fa-solid fa-circle-check text-emerald-500 mr-1"></i>Resolved</span>
+            `}
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch (err) {
+    console.error("Error loading IoT alerts:", err);
+  }
+}
+
+function refreshIotAlerts() {
+  loadIotAlerts(currentIotShipmentId);
+  showToast("Alert history refreshed.", "info");
+}
+
+function openAlertAckModal(alertId, alertTitle) {
+  document.getElementById('ack-target-alert-id').value = alertId;
+  const titleEl = document.getElementById('ack-alert-title');
+  if (titleEl) titleEl.innerText = alertTitle;
+  const modal = document.getElementById('alert-ack-modal');
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeAlertAckModal() {
+  const modal = document.getElementById('alert-ack-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+async function submitAlertAcknowledge(e) {
+  e.preventDefault();
+  const alertId = document.getElementById('ack-target-alert-id').value;
+  const ackBy = document.getElementById('ack-by-name').value.trim();
+  const notes = document.getElementById('ack-notes').value.trim();
+
+  try {
+    const res = await fetch(`${API_BASE}/api/iot/alerts/${encodeURIComponent(alertId)}/acknowledge`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        acknowledged_by: ackBy,
+        resolution_notes: notes
+      })
+    });
+
+    if (!res.ok) {
+      showToast("Failed to acknowledge alert.", "error");
+      return;
+    }
+
+    closeAlertAckModal();
+    showToast(`Alert ${alertId} successfully acknowledged.`, "success");
+    loadIotAlerts(currentIotShipmentId);
+    pollIotTelemetry();
+  } catch (err) {
+    console.error("Error acknowledging alert:", err);
+    showToast("Network error acknowledging alert.", "error");
+  }
+}
+
+async function loadShelfLifePrediction(shipmentId) {
+  try {
+    const res = await fetch(`${API_BASE}/api/shelf-life/prediction?shipment_id=${encodeURIComponent(shipmentId)}`);
+    if (!res.ok) return;
+    const data = await res.json();
+
+    // Update KPI Card 4
+    const daysEl = document.getElementById('kpi-shelf-life-days');
+    const riskBadge = document.getElementById('kpi-risk-score-badge');
+    if (daysEl) daysEl.innerText = `${data.estimated_remaining_days} Days`;
+    if (riskBadge) {
+      riskBadge.innerText = `${data.quality_risk_score}% (${data.risk_category})`;
+      riskBadge.className = `font-bold text-${data.risk_color}-700`;
+    }
+
+    // Update Produce Parameters Grid
+    const fName = document.getElementById('sl-food-name');
+    const fCat = document.getElementById('sl-category');
+    const fDate = document.getElementById('sl-harvest-date');
+    const fGrade = document.getElementById('sl-initial-grade');
+    const fAbuse = document.getElementById('sl-thermal-abuse');
+    const confBadge = document.getElementById('shelflife-confidence-badge');
+    const remHours = document.getElementById('sl-remaining-hours-text');
+
+    if (fName) fName.innerText = data.display_name || data.food_name;
+    if (fCat) fCat.innerText = data.category;
+    if (fDate) fDate.innerText = data.harvest_date;
+    if (fGrade) fGrade.innerText = data.initial_quality_grade;
+    if (fAbuse) fAbuse.innerText = `${data.thermal_abuse_degree_hours} °C·hrs`;
+    if (confBadge) confBadge.innerText = data.confidence_label || `${data.confidence_pct}% Confidence`;
+    if (remHours) remHours.innerText = `Remaining: ~${data.estimated_remaining_hours} Hours`;
+
+    // Render Arrhenius Quality Degradation Trajectory Chart
+    const trendCanvas = document.getElementById('iot-shelflife-chart');
+    if (trendCanvas && data.quality_degradation_trend) {
+      if (iotShelfLifeChartInstance) iotShelfLifeChartInstance.destroy();
+
+      const days = data.quality_degradation_trend.map(t => `Day +${t.day}`);
+      const scores = data.quality_degradation_trend.map(t => t.quality_score);
+
+      iotShelfLifeChartInstance = new Chart(trendCanvas.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: days,
+          datasets: [
+            {
+              label: 'Predicted Quality Score (%)',
+              data: scores,
+              borderColor: '#0d9488',
+              backgroundColor: 'rgba(13, 148, 136, 0.15)',
+              borderWidth: 2.5,
+              tension: 0.3,
+              pointRadius: 3,
+              fill: true
+            },
+            {
+              label: 'Marketable Cut-off (50%)',
+              data: days.map(() => 50),
+              borderColor: '#f59e0b',
+              borderWidth: 1.5,
+              borderDash: [4, 4],
+              pointRadius: 0,
+              fill: false
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'top', labels: { boxWidth: 12, font: { size: 10 } } },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => `Quality Score: ${ctx.raw}%`
+              }
+            }
+          },
+          scales: {
+            y: {
+              title: { display: true, text: 'Quality Score (%)', font: { size: 10 } },
+              min: 0,
+              max: 100
+            },
+            x: {
+              ticks: { font: { size: 9 } }
+            }
+          }
+        }
+      });
+    }
+  } catch (err) {
+    console.error("Error loading shelf life prediction:", err);
+  }
+}
+
+async function loadIotCategories() {
+  try {
+    const res = await fetch(`${API_BASE}/api/iot/categories`);
+    if (!res.ok) return;
+    const data = await res.json();
+    cachedIotCategories = data.categories || [];
+
+    const tbody = document.getElementById('iot-category-table-body');
+    if (!tbody) return;
+
+    tbody.innerHTML = cachedIotCategories.map(cat => `
+      <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+        <td class="p-3">
+          <span class="font-bold text-slate-800 text-sm">${cat.category_name}</span>
+        </td>
+        <td class="p-3">
+          <span class="font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+            ${cat.temp_min}°C to ${cat.temp_max}°C
+          </span>
+        </td>
+        <td class="p-3">
+          <span class="font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+            > ${cat.temp_critical}°C
+          </span>
+        </td>
+        <td class="p-3">
+          <span class="font-semibold text-cyan-800 bg-cyan-50 px-2 py-0.5 rounded border border-cyan-200">
+            ${cat.humidity_min}% - ${cat.humidity_max}%
+          </span>
+        </td>
+        <td class="p-3 font-mono text-slate-600">
+          ${cat.max_disconnect_seconds || 60}s
+        </td>
+        <td class="p-3 text-slate-600">
+          <div class="font-medium text-slate-700">${cat.storage_notes || 'Standard storage profile'}</div>
+          <div class="text-[10px] text-slate-400 font-mono">${cat.guideline_source || 'ICAR / FSSAI'}</div>
+        </td>
+        <td class="p-3 text-right">
+          <button onclick="openCategoryEditModal('${cat.category_name}')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-2.5 py-1 rounded-lg text-[11px] transition border border-slate-300">
+            <i class="fa-solid fa-pen-to-square mr-1"></i>Configure
+          </button>
+        </td>
+      </tr>
+    `).join('');
+  } catch (err) {
+    console.error("Error loading IoT categories:", err);
+  }
+}
+
+function openCategoryEditModal(catName) {
+  const cat = cachedIotCategories.find(c => c.category_name === catName);
+  if (!cat) return;
+
+  document.getElementById('edit-cat-name').value = cat.category_name;
+  document.getElementById('cat-modal-title').innerText = `Configure Limits: ${cat.category_name}`;
+  document.getElementById('edit-cat-temp-min').value = cat.temp_min;
+  document.getElementById('edit-cat-temp-max').value = cat.temp_max;
+  document.getElementById('edit-cat-temp-crit').value = cat.temp_critical;
+  document.getElementById('edit-cat-hum-min').value = cat.humidity_min;
+  document.getElementById('edit-cat-hum-max').value = cat.humidity_max;
+  document.getElementById('edit-cat-disconnect').value = cat.max_disconnect_seconds || 60;
+  document.getElementById('edit-cat-notes').value = cat.storage_notes || '';
+
+  const modal = document.getElementById('category-edit-modal');
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeCategoryEditModal() {
+  const modal = document.getElementById('category-edit-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+async function submitCategoryUpdate(e) {
+  e.preventDefault();
+  const catName = document.getElementById('edit-cat-name').value;
+  const payload = {
+    temp_min: parseFloat(document.getElementById('edit-cat-temp-min').value),
+    temp_max: parseFloat(document.getElementById('edit-cat-temp-max').value),
+    temp_critical: parseFloat(document.getElementById('edit-cat-temp-crit').value),
+    humidity_min: parseFloat(document.getElementById('edit-cat-hum-min').value),
+    humidity_max: parseFloat(document.getElementById('edit-cat-hum-max').value),
+    max_disconnect_seconds: parseInt(document.getElementById('edit-cat-disconnect').value),
+    storage_notes: document.getElementById('edit-cat-notes').value.trim()
+  };
+
+  try {
+    const res = await fetch(`${API_BASE}/api/iot/categories/${encodeURIComponent(catName)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+      showToast("Error updating storage limits.", "error");
+      return;
+    }
+
+    closeCategoryEditModal();
+    showToast(`Storage thresholds updated for ${catName}.`, "success");
+    loadIotCategories();
+    pollIotTelemetry();
+  } catch (err) {
+    console.error("Error submitting category update:", err);
+    showToast("Network error updating thresholds.", "error");
+  }
+}
+
+async function loadIotShipments() {
+  try {
+    const res = await fetch(`${API_BASE}/api/iot/shipments`);
+    if (!res.ok) return;
+    const data = await res.json();
+    const shipments = data.shipments || [];
+
+    const tbody = document.getElementById('iot-shipments-table-body');
+    if (!tbody) return;
+
+    if (shipments.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="9" class="p-4 text-center text-slate-400">No cold chain shipments currently registered.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = shipments.map(s => {
+      const isOnline = s.sensor_status === 'ONLINE';
+      const statusPill = isOnline 
+        ? `<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold text-[10px]">ONLINE</span>`
+        : `<span class="bg-rose-100 text-rose-800 px-2 py-0.5 rounded font-bold text-[10px]">OFFLINE</span>`;
+
+      return `
+        <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+          <td class="p-3">
+            <span class="font-bold text-slate-800 font-mono">${s.shipment_id}</span>
+          </td>
+          <td class="p-3">
+            <div class="font-bold text-slate-800">${s.food_name}</div>
+            <div class="text-[11px] text-slate-500">${s.category} • ${s.initial_quality_grade}</div>
+          </td>
+          <td class="p-3">
+            <div class="font-semibold text-slate-800">${s.truck_id}</div>
+            <div class="text-[11px] text-slate-500">${s.driver_name || 'Driver'}</div>
+          </td>
+          <td class="p-3 font-mono text-slate-700">
+            ${s.sensor_id}
+          </td>
+          <td class="p-3 font-bold text-slate-900">
+            ${s.live_temperature ? s.live_temperature.toFixed(1) + ' °C' : '--'}
+          </td>
+          <td class="p-3 font-bold text-cyan-800">
+            ${s.live_humidity ? s.live_humidity.toFixed(1) + ' %' : '--'}
+          </td>
+          <td class="p-3">
+            ${statusPill}
+          </td>
+          <td class="p-3">
+            ${s.active_alerts_count > 0 
+              ? `<span class="bg-rose-100 text-rose-800 font-bold px-2 py-0.5 rounded text-[10px] animate-pulse">${s.active_alerts_count} Active</span>`
+              : `<span class="text-slate-400 text-[11px]">None</span>`}
+          </td>
+          <td class="p-3 text-right">
+            <button onclick="changeIotShipment('${s.shipment_id}'); document.getElementById('iot-shipment-select').value='${s.shipment_id}'; window.scrollTo({top: 0, behavior: 'smooth'});" class="bg-cyan-600 hover:bg-cyan-700 text-white font-bold px-2.5 py-1 rounded-lg text-[11px] transition shadow-sm">
+              <i class="fa-solid fa-chart-line mr-1"></i>Monitor
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  } catch (err) {
+    console.error("Error loading IoT shipments:", err);
+  }
+}
+
+async function setSimulatorMode(mode) {
+  try {
+    const res = await fetch(`${API_BASE}/api/iot/simulator/action`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: mode })
+    });
+
+    if (!res.ok) {
+      showToast("Error updating simulator mode.", "error");
+      return;
+    }
+
+    const data = await res.json();
+    const modeNames = {
+      'NORMAL': 'Normal Cold Chain (10-14°C Safe)',
+      'THERMAL_BREACH': 'Reefer Breakdown Spike (+12°C)',
+      'HUMIDITY_BREACH': 'High Humidity Condensation (98%)',
+      'DISCONNECTED': 'Sensor Disconnected (Signal Lost)'
+    };
+    showToast(`Simulator: ${modeNames[mode] || mode}`, "info");
+
+    // Immediately refresh telemetry and alerts
+    await pollIotTelemetry();
+    await loadIotHistoryCharts(currentIotShipmentId);
+    await loadIotAlerts(currentIotShipmentId);
+    await loadShelfLifePrediction(currentIotShipmentId);
+  } catch (err) {
+    console.error("Error setting simulator mode:", err);
+  }
+}
+
+function openHardwareGuideModal() {
+  const modal = document.getElementById('hardware-guide-modal');
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeHardwareGuideModal() {
+  const modal = document.getElementById('hardware-guide-modal');
+  if (modal) modal.classList.add('hidden');
 }
 

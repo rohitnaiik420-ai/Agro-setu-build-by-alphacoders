@@ -14,7 +14,7 @@
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <!-- Custom CSS -->
-  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="./styles.css?v=2.2-iot" />
   <script>
     tailwind.config = {
       theme: {
@@ -113,6 +113,10 @@
           <i class="fa-solid fa-route"></i>
           <span>5. AI Route Optimization</span>
         </button>
+        <button onclick="switchTab('foodsafety')" id="tab-btn-foodsafety" class="nav-tab px-4 py-2 rounded-lg flex items-center space-x-2 whitespace-nowrap transition">
+          <i class="fa-solid fa-temperature-arrow-up text-cyan-300"></i>
+          <span>6. Food Safety & Cold Chain</span>
+        </button>
       </nav>
     </div>
   </header>
@@ -152,6 +156,10 @@
             <button onclick="switchTab('routing')" class="bg-slate-900/60 hover:bg-slate-900 text-white px-3.5 py-2 rounded-lg border border-slate-700 transition flex items-center space-x-1.5">
               <i class="fa-solid fa-map-location-dot"></i>
               <span>5-Farmer Route Optimizer</span>
+            </button>
+            <button onclick="switchTab('foodsafety')" class="bg-cyan-700/80 hover:bg-cyan-600 text-white px-3.5 py-2 rounded-lg border border-cyan-400/30 transition flex items-center space-x-1.5 shadow-sm">
+              <i class="fa-solid fa-temperature-arrow-up"></i>
+              <span>IoT Food Safety & Cold Chain</span>
             </button>
           </div>
         </div>
@@ -346,6 +354,55 @@
               <div class="text-[10px] font-normal text-emerald-600">Logistics Cost Saved</div>
             </div>
           </div>
+        </div>
+
+        <!-- Box 5: Real-Time IoT Food Safety & Cold Chain Highlight -->
+        <div class="bg-gradient-to-br from-cyan-900 via-slate-900 to-teal-950 rounded-xl border border-cyan-500/30 p-5 shadow-sm text-white col-span-1 md:col-span-2">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3 border-b border-cyan-700/40 pb-2">
+            <h3 class="font-bold text-white flex items-center space-x-2 text-base">
+              <span class="text-cyan-400 font-black">5.</span>
+              <span>❄️ Real-Time IoT Food Safety & Cold Chain Monitoring System</span>
+            </h3>
+            <div class="flex items-center space-x-2">
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5 animate-pulse"></span>
+                <span>ESP32 + SHT31 Live</span>
+              </span>
+              <button onclick="switchTab('foodsafety')" class="text-xs bg-cyan-600 hover:bg-cyan-500 text-white font-semibold px-3 py-1.5 rounded-lg transition shadow-sm flex items-center space-x-1.5 cursor-pointer">
+                <span>Open Full Monitor (Tab 6)</span>
+                <i class="fa-solid fa-arrow-right text-[11px]"></i>
+              </button>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs mb-3">
+            <div class="bg-white/10 backdrop-blur rounded-lg p-3 border border-white/10">
+              <div class="text-slate-300 text-[11px] mb-1">Active Cold Chain</div>
+              <div class="font-bold text-cyan-200 text-sm">SHIP-MAHA-101 (Alphonso Mango)</div>
+              <div class="text-[10px] text-slate-400 mt-0.5">Reefer Truck MH-12-RN-9901</div>
+            </div>
+            <div class="bg-white/10 backdrop-blur rounded-lg p-3 border border-white/10">
+              <div class="text-slate-300 text-[11px] mb-1">Live Telemetry (SHT31)</div>
+              <div class="font-bold text-emerald-300 text-sm flex items-center space-x-2">
+                <span>12.4°C</span>
+                <span class="text-slate-400">|</span>
+                <span>88.2% RH</span>
+              </div>
+              <div class="text-[10px] text-emerald-400 mt-0.5">Optimal Range: 11°C – 14°C</div>
+            </div>
+            <div class="bg-white/10 backdrop-blur rounded-lg p-3 border border-white/10">
+              <div class="text-slate-300 text-[11px] mb-1">AI Dynamic Shelf Life</div>
+              <div class="font-bold text-amber-300 text-sm">11.8 Days Remaining</div>
+              <div class="text-[10px] text-slate-300 mt-0.5">Risk Score: 18/100 (Low Risk)</div>
+            </div>
+            <div class="bg-white/10 backdrop-blur rounded-lg p-3 border border-white/10">
+              <div class="text-slate-300 text-[11px] mb-1">Validated Categories</div>
+              <div class="font-bold text-white text-sm">5 Storage Profiles</div>
+              <div class="text-[10px] text-slate-400 mt-0.5">Fruits, Veg, Dairy, Frozen, Processed</div>
+            </div>
+          </div>
+          <p class="text-[11px] text-slate-300 leading-relaxed">
+            Connected to ESP32 microcontroller with Sensirion SHT31 high-accuracy temp/humidity sensors, GPS, Arrhenius kinetic deterioration modeling, and instant threshold violation alerts.
+          </p>
         </div>
 
       </div>
@@ -1252,6 +1309,426 @@
 
     </div>
 
+    <!-- ==================== TAB 6: REAL-TIME IOT FOOD SAFETY & COLD CHAIN ==================== -->
+    <div id="tab-content-foodsafety" class="tab-pane hidden">
+      <!-- Section Banner -->
+      <div class="bg-gradient-to-r from-teal-800 via-emerald-800 to-cyan-900 rounded-2xl p-6 text-white shadow-lg mb-6 relative overflow-hidden">
+        <div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div class="max-w-3xl">
+            <div class="inline-flex items-center space-x-2 bg-emerald-950/60 text-cyan-300 px-3 py-1 rounded-full text-xs font-semibold mb-2.5 border border-cyan-400/30">
+              <i class="fa-solid fa-satellite-dish animate-pulse"></i>
+              <span>Hardware: ESP32 + SHT31 Digital Sensor + GPS Module</span>
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Real-Time IoT Food Safety & Cold Chain Monitoring</h1>
+            <p class="text-emerald-100 text-xs sm:text-sm mt-1.5 leading-relaxed">
+              Continuous thermal and humidity monitoring of agricultural produce in transit from farm to buyer. Powered by calibrated physical sensors, multi-factor category thresholds, and AI dynamic shelf-life estimation.
+            </p>
+          </div>
+
+          <!-- Active Shipment Selector & Quick Actions -->
+          <div class="bg-white/10 backdrop-blur-md p-3.5 rounded-xl border border-white/20 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div>
+              <label class="block text-[11px] font-semibold text-emerald-200 uppercase tracking-wider mb-1">
+                <i class="fa-solid fa-truck-ramp-box mr-1"></i>Select Monitored Shipment:
+              </label>
+              <select id="iot-shipment-select" onchange="changeIotShipment(this.value)" class="bg-slate-900/90 text-white font-bold text-xs rounded-lg px-3 py-2 border border-emerald-400/40 focus:ring-2 focus:ring-cyan-400 focus:outline-none w-full sm:w-64">
+                <option value="SHIP-MAHA-101">SHIP-MAHA-101: Organic Tomatoes (Nashik ➔ Pune)</option>
+                <option value="SHIP-MAHA-102">SHIP-MAHA-102: Bhagwa Pomegranate (Rahuri ➔ Pune)</option>
+                <option value="SHIP-DAIRY-301">SHIP-DAIRY-301: Chilled Raw Cow Milk (Anand ➔ Hub)</option>
+              </select>
+            </div>
+            <div class="flex items-end">
+              <button onclick="openHardwareGuideModal()" class="w-full sm:w-auto bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold px-3.5 py-2 rounded-lg text-xs shadow transition flex items-center justify-center space-x-1.5" title="ESP32 Wiring & Firmware Code">
+                <i class="fa-solid fa-microchip text-sm"></i>
+                <span>ESP32 Hardware Guide</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- System Status Bar -->
+        <div class="mt-4 pt-3 border-t border-emerald-700/50 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div class="flex flex-wrap items-center gap-3">
+            <!-- Hardware / Demo Mode Badge -->
+            <span id="iot-data-source-badge" class="px-2.5 py-1 rounded-md bg-emerald-950 text-emerald-300 border border-emerald-400/40 font-semibold flex items-center space-x-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+              <span>DATA SOURCE: ESP32 HARDWARE</span>
+            </span>
+
+            <!-- Connection Status Badge -->
+            <span id="iot-sensor-status-badge" class="px-2.5 py-1 rounded-md bg-emerald-600/60 text-white font-semibold flex items-center space-x-1.5">
+              <i class="fa-solid fa-wifi text-emerald-300"></i>
+              <span id="iot-connection-status-text">SENSOR ONLINE (SHT31 Active)</span>
+            </span>
+
+            <!-- Last Telemetry Time -->
+            <span class="text-emerald-200/90 flex items-center space-x-1">
+              <i class="fa-regular fa-clock"></i>
+              <span>Last Packet: <strong id="iot-last-updated-text" class="text-white">Just now</strong></span>
+            </span>
+          </div>
+
+          <div class="flex items-center space-x-2">
+            <span class="text-[11px] text-emerald-200">Auto-Refresh:</span>
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-cyan-950 text-cyan-300 border border-cyan-500/30">
+              <i class="fa-solid fa-arrows-rotate fa-spin mr-1 text-[10px]"></i> Live Telemetry Stream
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Simulator / Test Controls Bar -->
+      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-6">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div class="flex items-center space-x-2 text-xs">
+            <div class="w-8 h-8 rounded-lg bg-cyan-100 text-cyan-700 flex items-center justify-center text-sm font-bold shadow-inner">
+              <i class="fa-solid fa-sliders"></i>
+            </div>
+            <div>
+              <h3 class="font-bold text-slate-800">IoT Sensor Simulation & Stress Testing Console</h3>
+              <p class="text-slate-500 text-[11px]">Inject live cold-chain anomalies to test real-time farmer alerts, threshold breaches, and degradation curves.</p>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2 text-xs">
+            <button onclick="setSimulatorMode('NORMAL')" id="sim-btn-normal" class="sim-mode-btn bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold px-3 py-1.5 rounded-lg border border-emerald-300 transition flex items-center space-x-1">
+              <i class="fa-solid fa-circle-check text-emerald-600"></i>
+              <span>1. Normal Safe Transit</span>
+            </button>
+            <button onclick="setSimulatorMode('THERMAL_BREACH')" id="sim-btn-thermal" class="sim-mode-btn bg-rose-50 hover:bg-rose-100 text-rose-800 font-bold px-3 py-1.5 rounded-lg border border-rose-300 transition flex items-center space-x-1">
+              <i class="fa-solid fa-temperature-arrow-up text-rose-600"></i>
+              <span>2. Spike Temperature (+12°C)</span>
+            </button>
+            <button onclick="setSimulatorMode('HUMIDITY_BREACH')" id="sim-btn-hum" class="sim-mode-btn bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold px-3 py-1.5 rounded-lg border border-amber-300 transition flex items-center space-x-1">
+              <i class="fa-solid fa-droplet text-amber-600"></i>
+              <span>3. High Humidity (98% RH)</span>
+            </button>
+            <button onclick="setSimulatorMode('DISCONNECTED')" id="sim-btn-disc" class="sim-mode-btn bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold px-3 py-1.5 rounded-lg border border-slate-300 transition flex items-center space-x-1">
+              <i class="fa-solid fa-signal text-slate-500"></i>
+              <span>4. Disconnect Sensor (Signal Lost)</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4 Primary KPI Monitoring Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        
+        <!-- KPI 1: Live Temperature -->
+        <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm hover:shadow transition relative overflow-hidden">
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Live Temperature (°C)</p>
+              <div class="flex items-baseline space-x-2 mt-1">
+                <span class="text-3xl font-black text-slate-800 tracking-tight" id="kpi-live-temp">--.- °C</span>
+                <span id="kpi-temp-badge" class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                  OPTIMAL
+                </span>
+              </div>
+            </div>
+            <div id="kpi-temp-icon-box" class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-2xl shadow-inner">
+              <i class="fa-solid fa-temperature-half"></i>
+            </div>
+          </div>
+          <div class="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+            <span>Target Envelope: <strong id="kpi-temp-target" class="text-slate-700">10°C - 14°C</strong></span>
+            <span>Critical: <strong id="kpi-temp-critical" class="text-rose-600">> 20°C</strong></span>
+          </div>
+        </div>
+
+        <!-- KPI 2: Live Humidity -->
+        <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm hover:shadow transition relative overflow-hidden">
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Relative Humidity (%)</p>
+              <div class="flex items-baseline space-x-2 mt-1">
+                <span class="text-3xl font-black text-slate-800 tracking-tight" id="kpi-live-hum">--.- %</span>
+                <span id="kpi-hum-badge" class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-800 border border-cyan-300">
+                  NORMAL
+                </span>
+              </div>
+            </div>
+            <div id="kpi-hum-icon-box" class="w-12 h-12 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center text-2xl shadow-inner">
+              <i class="fa-solid fa-droplet"></i>
+            </div>
+          </div>
+          <div class="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+            <span>Safe Humidity Range: <strong id="kpi-hum-target" class="text-slate-700">85% - 92%</strong></span>
+            <span>Mold Risk: <strong class="text-amber-600">> 97%</strong></span>
+          </div>
+        </div>
+
+        <!-- KPI 3: Fleet Vehicle & Hardware Node -->
+        <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm hover:shadow transition relative overflow-hidden">
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">IoT Hardware & Fleet</p>
+              <div class="mt-1">
+                <div class="text-base font-extrabold text-slate-800" id="kpi-truck-no">MH-12-PQ-8901</div>
+                <div class="text-xs text-slate-500 font-mono" id="kpi-sensor-id">ESP32-SHT31-001</div>
+              </div>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-2xl shadow-inner">
+              <i class="fa-solid fa-truck-moving"></i>
+            </div>
+          </div>
+          <div class="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+            <span>Battery: <strong id="kpi-battery-pct" class="text-emerald-700 font-semibold">98%</strong></span>
+            <span>Signal: <strong id="kpi-signal-rssi" class="text-blue-700 font-semibold">-65 dBm</strong></span>
+            <span>Driver: <strong id="kpi-driver-name" class="text-slate-700">Santosh S.</strong></span>
+          </div>
+        </div>
+
+        <!-- KPI 4: AI Remaining Shelf Life -->
+        <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm hover:shadow transition relative overflow-hidden">
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">AI Remaining Shelf Life</p>
+              <div class="flex items-baseline space-x-2 mt-1">
+                <span class="text-3xl font-black text-emerald-800 tracking-tight" id="kpi-shelf-life-days">--.- Days</span>
+              </div>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center text-2xl shadow-inner">
+              <i class="fa-solid fa-hourglass-half"></i>
+            </div>
+          </div>
+          <div class="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
+            <span class="text-slate-500">Quality Risk Score:</span>
+            <span id="kpi-risk-score-badge" class="font-bold text-emerald-700">12% (Low Risk)</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Real-Time Telemetry Graphs Row -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        
+        <!-- Graph 1: Live Temperature Trajectory -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h3 class="font-bold text-slate-800 text-sm flex items-center space-x-2">
+                <i class="fa-solid fa-chart-line text-emerald-600"></i>
+                <span>Temperature History Graph (°C)</span>
+              </h3>
+              <p class="text-xs text-slate-500">Sensirion SHT31 sensor readings plotted against safe thermal bounds</p>
+            </div>
+            <div class="flex items-center space-x-1.5 text-xs">
+              <span class="inline-flex items-center text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-semibold">
+                Safe Envelope: <span id="chart-temp-bounds" class="ml-1">10 - 14°C</span>
+              </span>
+            </div>
+          </div>
+          <div class="h-64 relative">
+            <canvas id="iot-temp-chart"></canvas>
+          </div>
+        </div>
+
+        <!-- Graph 2: Live Humidity Trajectory -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h3 class="font-bold text-slate-800 text-sm flex items-center space-x-2">
+                <i class="fa-solid fa-water text-cyan-600"></i>
+                <span>Relative Humidity History Graph (%)</span>
+              </h3>
+              <p class="text-xs text-slate-500">Continuous moisture monitoring to prevent shrivelling or mold decay</p>
+            </div>
+            <div class="flex items-center space-x-1.5 text-xs">
+              <span class="inline-flex items-center text-[10px] bg-cyan-100 text-cyan-800 px-2 py-0.5 rounded font-semibold">
+                Optimal RH: <span id="chart-hum-bounds" class="ml-1">85 - 92%</span>
+              </span>
+            </div>
+          </div>
+          <div class="h-64 relative">
+            <canvas id="iot-hum-chart"></canvas>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Two-Column Layout: Alerts & Dynamic Shelf Life -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        
+        <!-- Column 1: Smart Alert System & History -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+              <div>
+                <h3 class="font-bold text-slate-800 text-sm flex items-center space-x-2">
+                  <i class="fa-solid fa-bell text-amber-500"></i>
+                  <span>Smart Food Safety Alert System</span>
+                </h3>
+                <p class="text-xs text-slate-500">Automatic detection of thermal breaches, humidity extremes & sensor disconnection</p>
+              </div>
+              <div class="flex items-center space-x-2">
+                <span id="alert-summary-pill" class="text-xs font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700">
+                  0 Active Alerts
+                </span>
+              </div>
+            </div>
+
+            <!-- Alerts List Container -->
+            <div class="space-y-2.5 max-h-96 overflow-y-auto pr-1" id="iot-alerts-list">
+              <div class="text-center py-8 text-slate-400 text-xs">
+                <i class="fa-solid fa-circle-check text-emerald-500 text-3xl mb-2"></i>
+                <p class="font-semibold text-slate-600">All storage conditions optimal.</p>
+                <p class="text-[11px] text-slate-400">No active cold chain violations recorded.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+            <span>Alert Categories: <strong class="text-slate-700">Normal • Warning • Critical</strong></span>
+            <button onclick="refreshIotAlerts()" class="text-cyan-700 hover:text-cyan-800 font-semibold flex items-center space-x-1">
+              <i class="fa-solid fa-rotate-right"></i>
+              <span>Refresh Alert History</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Column 2: AI Dynamic Shelf-Life Estimation Module -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
+              <div>
+                <h3 class="font-bold text-slate-800 text-sm flex items-center space-x-2">
+                  <i class="fa-solid fa-dna text-teal-600"></i>
+                  <span>AI Dynamic Shelf-Life Estimation</span>
+                </h3>
+                <p class="text-xs text-slate-500">Kinetic Arrhenius post-harvest deterioration modeling (ICAR / USDA calibrated)</p>
+              </div>
+              <span class="text-[11px] font-bold px-2.5 py-1 rounded-full bg-teal-100 text-teal-800 border border-teal-300" id="shelflife-confidence-badge">
+                92% Confidence (±8 hrs)
+              </span>
+            </div>
+
+            <!-- Produce Parameters Grid -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4 text-xs bg-slate-50 p-3 rounded-xl border border-slate-200">
+              <div>
+                <span class="text-slate-400 text-[10px] block">FOOD ITEM</span>
+                <strong id="sl-food-name" class="text-slate-800">Organic Tomato</strong>
+              </div>
+              <div>
+                <span class="text-slate-400 text-[10px] block">CATEGORY</span>
+                <strong id="sl-category" class="text-slate-800">Fruits</strong>
+              </div>
+              <div>
+                <span class="text-slate-400 text-[10px] block">HARVEST DATE</span>
+                <strong id="sl-harvest-date" class="text-slate-800">2026-11-03</strong>
+              </div>
+              <div>
+                <span class="text-slate-400 text-[10px] block">QUALITY GRADE</span>
+                <strong id="sl-initial-grade" class="text-emerald-700">Grade A+ Export</strong>
+              </div>
+            </div>
+
+            <!-- Degradation Trend Curve Chart -->
+            <div class="mb-3">
+              <div class="flex items-center justify-between text-xs mb-1.5">
+                <span class="font-bold text-slate-700 text-[11px]">Quality Degradation Trajectory (Quality % vs Future Days):</span>
+                <span class="text-[11px] text-slate-500">Thermal Abuse: <strong id="sl-thermal-abuse" class="text-rose-600">0.0 °C·hrs</strong></span>
+              </div>
+              <div class="h-44 relative">
+                <canvas id="iot-shelflife-chart"></canvas>
+              </div>
+            </div>
+
+            <!-- Mandatory Scientific Integrity Disclaimer -->
+            <div class="bg-amber-50/70 border border-amber-200/80 rounded-xl p-3 text-[11px] text-amber-900 leading-relaxed">
+              <div class="flex items-start space-x-2">
+                <i class="fa-solid fa-triangle-exclamation text-amber-600 mt-0.5 text-xs"></i>
+                <div>
+                  <strong class="font-bold text-amber-950">Food Safety & Shelf-Life Notice:</strong>
+                  Temperature and humidity sensor telemetry alone do not prove food is safe or free of microbial pathogens. Dynamic shelf-life predictions are algorithmic estimates based on validated thermal kinetics. Physical sensory and FSSAI standards verification are required.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+            <span>Model: <strong class="text-slate-700">Arrhenius Q10 Kinetic Decay</strong></span>
+            <span class="text-emerald-700 font-semibold" id="sl-remaining-hours-text">Remaining: ~338 Hours</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Food Category Guidelines & Configured Storage Thresholds -->
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm mb-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3 mb-4">
+          <div>
+            <h3 class="font-bold text-slate-800 text-sm flex items-center space-x-2">
+              <i class="fa-solid fa-table-list text-emerald-700"></i>
+              <span>Food Category Management & Storage Guidelines</span>
+            </h3>
+            <p class="text-xs text-slate-500">Validated limits for Fruits, Vegetables, Dairy, Frozen & Processed food products</p>
+          </div>
+          <div>
+            <span class="text-xs text-slate-400 mr-2">Standard: ICAR-CIPHET / FSSAI / USDA HB66</span>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="bg-slate-50 text-slate-500 uppercase font-semibold text-[11px] border-b border-slate-200">
+                <th class="p-3">Category Name</th>
+                <th class="p-3">Optimal Temp Range</th>
+                <th class="p-3">Critical Temp Max</th>
+                <th class="p-3">Optimal Humidity</th>
+                <th class="p-3">Disconnect Timeout</th>
+                <th class="p-3">Storage Guidelines / Regulatory Source</th>
+                <th class="p-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="iot-category-table-body" class="divide-y divide-slate-100 text-slate-700">
+              <!-- Dynamically rendered via loadIotCategories() -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Shipment Cold Chain Monitoring History -->
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+          <div>
+            <h3 class="font-bold text-slate-800 text-sm flex items-center space-x-2">
+              <i class="fa-solid fa-clock-rotate-left text-slate-600"></i>
+              <span>Shipment Cold Chain Monitoring Registry</span>
+            </h3>
+            <p class="text-xs text-slate-500">Active and past monitored food shipments with live hardware status</p>
+          </div>
+          <button onclick="loadIotShipments()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-3 py-1.5 rounded-lg border border-slate-300 transition flex items-center space-x-1">
+            <i class="fa-solid fa-rotate-right"></i>
+            <span>Refresh</span>
+          </button>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="bg-slate-50 text-slate-500 uppercase font-semibold text-[11px] border-b border-slate-200">
+                <th class="p-3">Tracking No</th>
+                <th class="p-3">Produce & Category</th>
+                <th class="p-3">Vehicle & Driver</th>
+                <th class="p-3">Assigned Sensor</th>
+                <th class="p-3">Live Temp</th>
+                <th class="p-3">Live Humidity</th>
+                <th class="p-3">Sensor Status</th>
+                <th class="p-3">Active Alerts</th>
+                <th class="p-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="iot-shipments-table-body" class="divide-y divide-slate-100 text-slate-700">
+              <!-- Dynamically populated via loadIotShipments() -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
   </main>
 
   <!-- ==================== MODALS ==================== -->
@@ -1603,6 +2080,218 @@
           <span data-i18n="add_stop_btn">Add to AI Optimization Route</span>
         </button>
       </form>
+  <!-- ==================== IOT MODALS ==================== -->
+
+  <!-- 1. ESP32 Hardware Integration & Firmware Guide Modal -->
+  <div id="hardware-guide-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 relative max-h-[90vh] overflow-y-auto">
+      <button onclick="closeHardwareGuideModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-lg">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <div class="flex items-center space-x-3 border-b border-slate-100 pb-3 mb-4">
+        <div class="w-10 h-10 rounded-xl bg-cyan-100 text-cyan-600 flex items-center justify-center text-xl">
+          <i class="fa-solid fa-microchip"></i>
+        </div>
+        <div>
+          <h3 class="font-bold text-slate-800 text-base">ESP32 + SHT31 + GPS Hardware Integration Guide</h3>
+          <p class="text-xs text-slate-500">Physical wiring schematics, secure API token, and Arduino C++ firmware</p>
+        </div>
+      </div>
+
+      <div class="space-y-4 text-xs">
+        <!-- Pinout Table -->
+        <div>
+          <h4 class="font-bold text-slate-700 uppercase tracking-wider text-[11px] mb-2 flex items-center space-x-1.5">
+            <i class="fa-solid fa-plug text-cyan-600"></i>
+            <span>Recommended Hardware Pinout Wiring</span>
+          </h4>
+          <div class="overflow-x-auto border border-slate-200 rounded-xl">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead class="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
+                <tr>
+                  <th class="p-2.5">Component</th>
+                  <th class="p-2.5">Component Pin</th>
+                  <th class="p-2.5">ESP32 Dev Board GPIO</th>
+                  <th class="p-2.5">Interface</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                <tr>
+                  <td class="p-2.5 font-bold text-emerald-800">Sensirion SHT31</td>
+                  <td class="p-2.5">VCC / GND</td>
+                  <td class="p-2.5">3V3 / GND</td>
+                  <td class="p-2.5">3.3V Power Rail</td>
+                </tr>
+                <tr>
+                  <td class="p-2.5 font-bold text-emerald-800">Sensirion SHT31</td>
+                  <td class="p-2.5">SDA / SCL</td>
+                  <td class="p-2.5">GPIO 21 (SDA) / GPIO 22 (SCL)</td>
+                  <td class="p-2.5">I2C Bus (Addr: 0x44)</td>
+                </tr>
+                <tr>
+                  <td class="p-2.5 font-bold text-blue-800">Neo-6M GPS Module</td>
+                  <td class="p-2.5">VCC / GND</td>
+                  <td class="p-2.5">5V (or 3V3) / GND</td>
+                  <td class="p-2.5">Power Supply</td>
+                </tr>
+                <tr>
+                  <td class="p-2.5 font-bold text-blue-800">Neo-6M GPS Module</td>
+                  <td class="p-2.5">TX / RX</td>
+                  <td class="p-2.5">GPIO 16 (RX2) / GPIO 17 (TX2)</td>
+                  <td class="p-2.5">UART2 Serial (9600 baud)</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Telemetry Ingestion API Spec -->
+        <div class="bg-slate-900 text-slate-200 p-3.5 rounded-xl text-[11px] font-mono space-y-1.5">
+          <div class="text-cyan-400 font-bold font-sans text-xs">REST Telemetry Endpoint & Auth Header:</div>
+          <div class="text-slate-300">POST /api/iot/sensor-data</div>
+          <div class="text-slate-400">Header: <span class="text-amber-300">X-Sensor-API-Key: agrosetu-iot-sensor-auth-token-2026</span></div>
+          <div class="text-slate-400">Payload: <span class="text-emerald-300">{"sensor_id":"ESP32-SHT31-001", "shipment_id":"SHIP-MAHA-101", "temperature":11.8, "humidity":88.5, "is_simulated":false}</span></div>
+        </div>
+
+        <!-- Arduino Sketch Code Box -->
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="font-bold text-slate-700 text-[11px]">Production Arduino C++ Firmware (Preview):</span>
+            <span class="text-slate-400 text-[10px]">Saved to /firmware/esp32_coldchain_sht31_gps.ino</span>
+          </div>
+          <pre class="bg-slate-950 text-emerald-300 p-3 rounded-xl text-[11px] font-mono max-h-48 overflow-y-auto select-all">#include &lt;WiFi.h&gt;
+#include &lt;HTTPClient.h&gt;
+#include &lt;Adafruit_SHT31.h&gt;
+
+Adafruit_SHT31 sht31 = Adafruit_SHT31();
+const char* SERVER_URL = "http://YOUR_SERVER_IP:8000/api/iot/sensor-data";
+const char* API_KEY    = "agrosetu-iot-sensor-auth-token-2026";
+
+void setup() {
+  Wire.begin(21, 22);
+  sht31.begin(0x44);
+  WiFi.begin("AgroSetu_ColdChain_WiFi", "SafeFoodPassword2026");
+}
+
+void loop() {
+  float temp = sht31.readTemperature();
+  float hum  = sht31.readHumidity();
+  // Dispatch HTTP POST with X-Sensor-API-Key header every 5000ms
+  delay(5000);
+}</pre>
+        </div>
+
+        <div class="pt-2 flex justify-end">
+          <button onclick="closeHardwareGuideModal()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 px-5 rounded-xl transition">
+            Close Guide
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Alert Acknowledgement Modal -->
+  <div id="alert-ack-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 relative">
+      <button onclick="closeAlertAckModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-lg">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <div class="flex items-center space-x-3 border-b border-slate-100 pb-3 mb-4">
+        <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center text-xl">
+          <i class="fa-solid fa-shield-halved"></i>
+        </div>
+        <div>
+          <h3 class="font-bold text-slate-800 text-base">Acknowledge Food Safety Alert</h3>
+          <p class="text-xs text-slate-500" id="ack-alert-title">Alert Reference: ALT-XXXX</p>
+        </div>
+      </div>
+
+      <form id="alert-ack-form" onsubmit="submitAlertAcknowledge(event)" class="space-y-3.5 text-xs">
+        <input type="hidden" id="ack-target-alert-id" />
+        
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Acknowledged By (Farmer / Cold-Chain Operator Name)</label>
+          <input type="text" id="ack-by-name" required value="Ramesh Patil (Farmer / FPO Lead)" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-amber-500 focus:outline-none" />
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Corrective Action Taken & Resolution Notes</label>
+          <textarea id="ack-notes" rows="3" required placeholder="e.g. Driver inspected reefer cooling compressor. Set thermostat to 4°C. Ventilation vents adjusted." class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-amber-500 focus:outline-none"></textarea>
+        </div>
+
+        <button type="submit" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-2.5 px-4 rounded-xl shadow transition mt-2 flex items-center justify-center space-x-1.5">
+          <i class="fa-solid fa-check-double"></i>
+          <span>Confirm Alert Acknowledgement</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 3. Edit Food Category Thresholds Modal -->
+  <div id="category-edit-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 relative max-h-[90vh] overflow-y-auto">
+      <button onclick="closeCategoryEditModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-lg">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <div class="flex items-center space-x-3 border-b border-slate-100 pb-3 mb-4">
+        <div class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-xl">
+          <i class="fa-solid fa-sliders"></i>
+        </div>
+        <div>
+          <h3 class="font-bold text-slate-800 text-base" id="cat-modal-title">Configure Category Limits</h3>
+          <p class="text-xs text-slate-500">Update storage thresholds based on validated food standards</p>
+        </div>
+      </div>
+
+      <form id="category-edit-form" onsubmit="submitCategoryUpdate(event)" class="space-y-3.5 text-xs">
+        <input type="hidden" id="edit-cat-name" />
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Optimal Temp Min (°C)</label>
+            <input type="number" step="0.5" id="edit-cat-temp-min" required class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Optimal Temp Max (°C)</label>
+            <input type="number" step="0.5" id="edit-cat-temp-max" required class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Critical Temp Max (°C)</label>
+            <input type="number" step="0.5" id="edit-cat-temp-crit" required class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Sensor Timeout (Seconds)</label>
+            <input type="number" id="edit-cat-disconnect" required min="15" max="300" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Humidity Min (%)</label>
+            <input type="number" step="1" id="edit-cat-hum-min" required min="0" max="100" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Humidity Max (%)</label>
+            <input type="number" step="1" id="edit-cat-hum-max" required min="0" max="100" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Storage Guidelines & Regulatory Notes</label>
+          <textarea id="edit-cat-notes" rows="2" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"></textarea>
+        </div>
+
+        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl shadow transition mt-2 flex items-center justify-center space-x-1.5">
+          <i class="fa-solid fa-floppy-disk"></i>
+          <span>Save Storage Limits</span>
+        </button>
+      </form>
     </div>
   </div>
 
@@ -1621,6 +2310,6 @@
   </footer>
 
   <!-- App Script -->
-  <script src="/app.js"></script>
+  <script src="./app.js?v=2.2-iot"></script>
 </body>
 </html>

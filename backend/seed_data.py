@@ -1,5 +1,6 @@
 import datetime
 import random
+import math
 try:
     from backend.database import get_db_connection, init_db
 except ImportError:
@@ -200,9 +201,98 @@ def seed_all():
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
     """, history_records)
 
+    # 7. Seed IoT Cold Chain Hardware & Monitored Food Shipments
+    now_ts = datetime.datetime.now().isoformat()
+    yesterday_ts = (datetime.datetime.now() - datetime.timedelta(days=1)).isoformat()
+    harvest_ts = (datetime.datetime.now() - datetime.timedelta(days=2)).strftime("%Y-%m-%d")
+
+    # Clear IoT tables on seed reset
+    iot_tables = ["iot_sensors", "food_shipments", "sensor_readings", "food_safety_alerts", "shelf_life_predictions"]
+    for it in iot_tables:
+        cursor.execute(f"DELETE FROM {it};")
+        cursor.execute(f"DELETE FROM sqlite_sequence WHERE name='{it}';")
+
+    # Seed IoT Sensors
+    sensors_data = [
+        ("ESP32-SHT31-001", "ESP32 + SHT31 + GPS", "ESP32-WROOM-32D", "ONLINE", now_ts, 98.0, "v1.4.2-AgroSetu", 0),
+        ("ESP32-SHT31-002", "ESP32 + SHT31 + GPS", "ESP32-WROOM-32D", "ONLINE", now_ts, 94.5, "v1.4.2-AgroSetu", 0),
+        ("ESP32-SHT31-003", "ESP32 + SHT31 + GPS", "ESP32-WROOM-32D", "ONLINE", now_ts, 91.0, "v1.4.2-AgroSetu", 0)
+    ]
+    cursor.executemany("""
+    INSERT INTO iot_sensors (sensor_id, hardware_type, model, status, last_heartbeat, battery_pct, firmware_version, is_simulator)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+    """, sensors_data)
+
+    # Seed Food Shipments
+    food_shipments_data = [
+        ("SHIP-MAHA-101", 1, "ESP32-SHT31-001", "Organic Hybrid Tomato", "Fruits", "MH-12-PQ-8901", harvest_ts, "Grade A+ Export", 10.0, 14.0, 85.0, 92.0, "ACTIVE"),
+        ("SHIP-MAHA-102", 3, "ESP32-SHT31-002", "Bhagwa Pomegranate", "Fruits", "MH-15-EG-4412", harvest_ts, "Grade A", 5.0, 7.0, 90.0, 95.0, "ACTIVE"),
+        ("SHIP-DAIRY-301", 4, "ESP32-SHT31-003", "Raw Cow Milk", "Dairy Products", "MH-11-DF-2299", harvest_ts, "Grade A Premium", 1.0, 4.0, 65.0, 80.0, "ACTIVE")
+    ]
+    cursor.executemany("""
+    INSERT INTO food_shipments (
+        shipment_id, order_id, sensor_id, food_name, category, truck_id,
+        harvest_date, initial_quality_grade, target_temp_min, target_temp_max,
+        target_humidity_min, target_humidity_max, monitoring_status
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    """, food_shipments_data)
+
+    # Seed initial Sensor Readings history for SHIP-MAHA-101
+    base_t = 12.0
+    base_h = 88.5
+    readings_data = []
+    for i in range(25):
+        pt_time = (datetime.datetime.now() - datetime.timedelta(minutes=(25 - i) * 6)).isoformat()
+        t_val = round(base_t + math.sin(i / 3.0) * 0.9 + random.uniform(-0.15, 0.15), 2)
+        h_val = round(base_h + math.cos(i / 4.0) * 1.2 + random.uniform(-0.3, 0.3), 1)
+        readings_data.append((
+            "ESP32-SHT31-001", "SHIP-MAHA-101", "MH-12-PQ-8901",
+            t_val, h_val, 19.4520 + (i * 0.002), 74.1500 + (i * 0.003),
+            0, "HARDWARE_ESP32", 98.0, -64, pt_time
+        ))
+
+    # Also a few readings for Pomegranates
+    for i in range(15):
+        pt_time = (datetime.datetime.now() - datetime.timedelta(minutes=(15 - i) * 10)).isoformat()
+        t_val = round(5.8 + random.uniform(-0.2, 0.3), 2)
+        h_val = round(91.5 + random.uniform(-0.5, 0.5), 1)
+        readings_data.append((
+            "ESP32-SHT31-002", "SHIP-MAHA-102", "MH-15-EG-4412",
+            t_val, h_val, 19.1240, 74.5200,
+            0, "HARDWARE_ESP32", 95.0, -68, pt_time
+        ))
+
+    cursor.executemany("""
+    INSERT INTO sensor_readings (
+        sensor_id, shipment_id, truck_id, temperature, humidity,
+        latitude, longitude, is_simulated, data_source, battery_pct, signal_rssi, timestamp
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    """, readings_data)
+
+    # Seed a sample acknowledged alert and an active alert
+    sample_alerts = [
+        ("ALT-INIT-001", "SHIP-MAHA-101", "ESP32-SHT31-001", "MH-12-PQ-8901", "Organic Hybrid Tomato", "Fruits",
+         "TEMP_BREACH_HIGH", "Warning", "Temperature", 15.2, 14.0,
+         "WARNING: Temperature reached 15.2°C during truck loading at Nashik Hub. Reefer cooling active.",
+         (datetime.datetime.now() - datetime.timedelta(hours=2)).isoformat(), 1, "Ramesh Patil (Farmer)",
+         (datetime.datetime.now() - datetime.timedelta(hours=1, minutes=45)).isoformat(), "Driver turned reefer to maximum cooling."),
+        ("ALT-INIT-002", "SHIP-MAHA-101", "ESP32-SHT31-001", "MH-12-PQ-8901", "Organic Hybrid Tomato", "Fruits",
+         "HUMIDITY_BREACH_HIGH", "Warning", "Humidity", 93.8, 92.0,
+         "WARNING: Humidity reached 93.8% (Target: 85-92%). Ventilation fans activated.",
+         (datetime.datetime.now() - datetime.timedelta(minutes=18)).isoformat(), 0, None, None, None)
+    ]
+    cursor.executemany("""
+    INSERT INTO food_safety_alerts (
+        alert_id, shipment_id, sensor_id, truck_id, food_name, category,
+        alert_type, severity, parameter, recorded_value, threshold_value,
+        message, timestamp, acknowledged, acknowledged_by, acknowledged_at, resolution_notes
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    """, sample_alerts)
+
     conn.commit()
     conn.close()
     print("All nationwide seed data successfully written and committed to SQLite database!")
 
 if __name__ == "__main__":
     seed_all()
+
