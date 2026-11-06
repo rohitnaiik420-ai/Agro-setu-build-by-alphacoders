@@ -1208,7 +1208,12 @@ def get_dashboard_root():
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
         return response
-    return {"message": "Frontend index.html not found"}
+    return {"message": "AgroSetu AI Backend is running. Frontend is served separately."}
 
-# Serve frontend static files
-app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
+# Serve frontend static files (local development only - Vercel serves these as static assets)
+IS_VERCEL = bool(os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"))
+if not IS_VERCEL and FRONTEND_DIR.exists():
+    try:
+        app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
+    except Exception as e:
+        print(f"Warning: Could not mount static files: {e}")
